@@ -6,8 +6,8 @@ This tool aggregates vulnerability data from the **National Vulnerability Databa
 ## ⚠️ Important Considerations
 
 * **Dual-Source Vulnerability Scanning:** This tool aggregates vulnerability data from two primary sources:
-    * **NVD:** Utilized for broad CVE coverage. (Requires a registered NVD API key).
-    * **Google OSV:** Utilized for precise, ecosystem-specific open-source vulnerability mapping via the `osv` Python library. This helps significantly reduce false positives and fills gaps where NVD data may be delayed.
+    * **NVD:** Used for CPE Scanning (Requires a registered NVD API key).
+    * **Google OSV:** Used for PURL scanning
 * **CVSS Conversion:** This tool utilizes the `cvss_converter` library to normalize CVSSv2 scores into CVSSv3. Please be aware that this conversion process may result in slight variances in the final base risk assessment compared to original CVSSv2 values.
 * **API Access:** You must register at the [NVD website](https://nvd.nist.gov/) to obtain a personal NVD API key to use this tool.
 
