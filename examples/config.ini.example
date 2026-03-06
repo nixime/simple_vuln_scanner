@@ -1,0 +1,48 @@
+[NVD]
+api_key=""
+
+[GLOBAL]
+input_configs="examples/system.ini.example"
+# Should the tool ignore CVE's marked as deferred
+ignore_defferred=True
+include_zero_vuln_components=False
+
+[TEMPLATE]
+template="examples/template.xlsx"
+template_start_row=3
+# (optional) Max lenght of the description when written into the template
+template_max_description_char=50
+# (optional) Combine all the BOMs into a single worksheet in the excel file
+combine_all_boms=False
+# (optional) Should the CVSS Vector be split into individual parts and made available in the template?
+split_cvss_score=True
+# (optional) Column locations (1 based) where NVD data should be written on each row
+column_id_bom=2
+column_id_cpe=3
+column_id_cve=4
+column_id_description=5
+column_id_publish_date=6
+column_id_cvss=7
+column_id_base_score=9
+column_id_is_kev=8
+# (optional) If the base CVSS score should be split into individual elements specify the details here
+column_split_cvss_av=13
+column_split_cvss_ac=14
+column_split_cvss_pr=15
+column_split_cvss_ui=16
+column_split_cvss_s=17
+column_split_cvss_c=18
+column_split_cvss_i=19
+column_split_cvss_a=20
+# (optional) Additional Column Values (static) to add to each row.
+column_static_1_id=22
+column_static_1_value="=GET_CVSS(M{row}, N{row}, O{row}, P{row}, Q{row}, R{row}, S{row}, T{row})"
+column_static_2_id=21
+column_static_2_value='="CVSS:3.0/AV:"&_xlfn.IFS(M{row}="Network","N",M{row}="Adjacent","A",M{row}="Local","L",M{row}="Physical","P")&"/AC:"&LEFT(N{row},1)&"/PR:"&LEFT(O{row},1)&"/UI:"&IF(P{row}="None","N","R")&"/S:"&LEFT(Q{row},1)&"/C:"&LEFT(R{row},1)&"/I:"&LEFT(S{row},1)&"/A:"&LEFT(T{row},1)'
+
+[RATE_LIMITER]
+requests_per_delay="30"
+request_delay="20"
+
+
+

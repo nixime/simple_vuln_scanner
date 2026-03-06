@@ -1,0 +1,8 @@
+[SYSTEM_ID_1]
+name="System 1"
+boms="examples/cpe_test.json"
+# Valid formats are csv and json (CycloneDX)
+bom_format=json
+# Valid for CSV only
+bom_cpe_column=1
+
