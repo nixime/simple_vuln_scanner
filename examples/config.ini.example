@@ -39,6 +39,8 @@ column_static_1_id=22
 column_static_1_value="=GET_CVSS(M{row}, N{row}, O{row}, P{row}, Q{row}, R{row}, S{row}, T{row})"
 column_static_2_id=21
 column_static_2_value='="CVSS:3.0/AV:"&_xlfn.IFS(M{row}="Network","N",M{row}="Adjacent","A",M{row}="Local","L",M{row}="Physical","P")&"/AC:"&LEFT(N{row},1)&"/PR:"&LEFT(O{row},1)&"/UI:"&IF(P{row}="None","N","R")&"/S:"&LEFT(Q{row},1)&"/C:"&LEFT(R{row},1)&"/I:"&LEFT(S{row},1)&"/A:"&LEFT(T{row},1)'
+column_static_3_id=24
+column_static_3_value="=INDEX('Notes'!G4:J7,_xlfn.IFS(V{row}>='Notes'!F4,1,V{row}>='Notes'!F5,2,V{row}>='Notes'!F6,3,V{row}<'Notes'!F6,4),MATCH(W{row},'Notes'!G3:J3,0))"
 
 [RATE_LIMITER]
 requests_per_delay="30"

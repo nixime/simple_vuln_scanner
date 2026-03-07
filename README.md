@@ -2,6 +2,8 @@
 
 This tool aggregates vulnerability data from the **National Vulnerability Database (NVD)** and the **Google Open Source Vulnerability (OSV)** database to populate a custom Excel template. The tool supports ingesting **CSV** or **CycloneDX** files containing CPEs or package identifiers (PURL).
 
+There is also a [migration script](README2.md), to enable copying manually populated data from a prior assessment to the newly scanned content.
+
 
 ## ⚠️ Important Considerations
 
@@ -39,3 +41,5 @@ Note: The json library is included in the Python standard library and does not r
 To run the scanner, you must provide an NVD API key and define your template path in `config.ini`. 
 
 For a complete reference of all available settings—including advanced column mapping, CVSS vector splitting, and formula customization—please see the [Configuration Reference](CONFIGURATION.md).
+
+
