@@ -21,7 +21,6 @@ import nvd
 import cisa
 import osv
 
-
 def tokenize_cvss3_human(vector_string: str, human_readible: bool=True) -> dict:
     '''
     Static method to tokenize the CVSS 3.0 vector string into individual components
@@ -95,7 +94,7 @@ def get_component_list(file:str, type:str, csv_column_id):
     return cpe_list
 
 def populate_template_sheet(new_sheet, data_row, config, bom_name, component_id, vuln_id, vuln_desc, pub_date, vector_str, base_score, is_kev):
-    if hasattr(config, "coloumn_id_bom"):
+    if hasattr(config, "column_id_bom"):
         new_sheet.cell(row=data_row, column=config.column_id_bom).value = bom_name
     if hasattr(config, "column_id_cpe"):
         new_sheet.cell(row=data_row, column=config.column_id_cpe).value = component_id
@@ -251,6 +250,7 @@ def main():
 
     nvd_obj=nvd.NVD(config.NVD.api_key)
     kev_obj=cisa.KEV()
+    kev_obj.load_kevs()
 
     template_file=Path(config.TEMPLATE.template).resolve()
     if not os.path.exists(template_file):
@@ -287,6 +287,9 @@ def main():
 
             if new_sheet is None or not combine_sboms:
                 new_sheet = wb.copy_worksheet(template_sheet)
+                # Check if the source has an auto-filter, and clone that over as well
+                if template_sheet.auto_filter.ref:
+                    new_sheet.auto_filter.ref = template_sheet.auto_filter.ref
                 copy_data_validations(template_sheet, new_sheet)
                 data_row = config.TEMPLATE.template_start_row
 
