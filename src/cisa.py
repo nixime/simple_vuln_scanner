@@ -5,9 +5,12 @@ import requests
 class KEV:
     __base_kev_url = 'https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json'
     __kev_list = []
+    __verify_certificate = True
     
-    @staticmethod
-    def __query_json(url):
+    def __init__(self, verify_certificate=True):
+        self.__verify_certificate = verify_certificate
+
+    def __query_json(self):
         """
         A private method used to send a GET request to the NVD API
 
@@ -18,8 +21,8 @@ class KEV:
             dict: Parsed JSON data if the request is successful (HTTP 200).
             None: If the request fails or returns a non-200 status code.
         """
-        url = f"{url}"
-        response = requests.get(url, verify=False)
+        url = f"{self.__base_kev_url}"
+        response = requests.get(url, verify=self.__verify_certificate)
         if response.status_code == 200:
             return json.loads(response.text)
         else:
@@ -31,7 +34,7 @@ class KEV:
         """
         Method to load the KEV database
         """
-        json_obj = KEV.__query_json(self.__base_kev_url)
+        json_obj = self.__query_json( )
         for vuln in json_obj['vulnerabilities']:
             self.__kev_list.append(vuln['cveID'])
 

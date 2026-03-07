@@ -6,12 +6,13 @@ import requests
 class NVD:
     __base_nvd_url = 'https://services.nvd.nist.gov/rest/json/cves/2.0'
     __nvd_api_key = ''
+    __verify_certificate = True
 
-    def __init__(self, key):
+    def __init__(self, key, verify_certificate=True):
         self.__nvd_api_key = key
+        self.__verify_certificate = verify_certificate
     
-    @staticmethod
-    def __query_api(url, key, type, id):
+    def __query_api(self, type, id):
         """
         A private method used to send a GET request to the NVD API
 
@@ -25,11 +26,11 @@ class NVD:
             dict: Parsed JSON data if the request is successful (HTTP 200).
             None: If the request fails or returns a non-200 status code.
         """
-        url = f"{url}?{type}={id}"
+        url = f"{self.__base_nvd_url}?{type}={id}"
         headers = {
-            'apiKey': key
+            'apiKey': self.__nvd_api_key
         }
-        response = requests.get(url, headers=headers, verify=False)
+        response = requests.get(url, headers=headers, verify=self.__verify_certificate)
         if response.status_code == 200:
             return json.loads(response.text)
         else:
@@ -37,7 +38,7 @@ class NVD:
             print(response)
             return None
 
-    def query_cpe(self, cpe_name):
+    def query_for_vulnerabilities(self, cpe_name):
         """
         Method to query the NVD database for CVE details about a single CPE identifier
 
@@ -48,7 +49,7 @@ class NVD:
             json: raw JSON object provided by the NVD API
             None: If the request fails, then a None object is returned
         """
-        return NVD.__query_api(self.__base_nvd_url, self.__nvd_api_key, 'cpeName', cpe_name)
+        return NVD.__query_api(self, 'cpeName', cpe_name)
 
     @staticmethod
     def tokenize_metrics_block(metrics):

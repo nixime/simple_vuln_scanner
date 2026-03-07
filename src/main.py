@@ -229,7 +229,6 @@ def apply_data_validation_rules(worksheet, source_row_idx, count):
             target_dv.ranges.add(target_range)
 
 
-
 def main():
     parser = argparse.ArgumentParser(
         description="Application to scan the NVD database for CVE's associated to specific CPE inputs, and provide data for analysis",
@@ -249,8 +248,9 @@ def main():
         config = nvdconfig.NVDConfigFile('config.ini')
 
     nvd_obj=nvd.NVD(config.NVD.api_key)
-    kev_obj=cisa.KEV()
-    kev_obj.load_kevs()
+    osv_obj=osv.OSV(20)
+    kev_obj=cisa.KEV(True)
+    kev_obj.load_kevs( )
 
     template_file=Path(config.TEMPLATE.template).resolve()
     if not os.path.exists(template_file):
@@ -319,7 +319,7 @@ def main():
                     # If it is a CPE, then use NVD as the source of vulnerabilities
                     if component_id.startswith("cpe:"):
                         print(f"Scanning for CPE Information: {component_id}")
-                        obj_json = nvd_obj.query_cpe(component_id)
+                        obj_json = nvd_obj.query_for_vulnerabilities(component_id)
 
                         if args.dump:
                             with open('vulnerability_dump.json', 'w') as f:
@@ -337,7 +337,7 @@ def main():
                     # If it is a PURL then use Googles OSV as the source of vulnerabilities
                     elif component_id.startswith("pkg:"):
                         print(f"Scanning for PURL Information: {component_id}")
-                        obj_json = osv.OSV.query_osv(component_id)
+                        obj_json = osv_obj.query_for_vulnerabilities(component_id)
 
                         if args.dump:
                             with open('vulnerability_dump.json', 'w') as f:

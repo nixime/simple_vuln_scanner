@@ -7,8 +7,8 @@ class OSV:
     def __init__(self, timeout: int = 10):
         self.timeout = timeout
 
-    @staticmethod
-    def query_osv(purl: str) -> Dict[str, Any]:
+    
+    def query_for_vulnerabilities(self, purl: str) -> Dict[str, Any]:
         """
         Queries the OSV database for vulnerabilities associated with a specific PURL.
         
@@ -22,9 +22,9 @@ class OSV:
         
         try:
             response = requests.post(
-                OSV.__base_osv_url, 
+                self.__base_osv_url, 
                 json=payload, 
-                timeout=20
+                timeout=self.timeout
             )
             
             # OSV returns a 200 OK even if no vulnerabilities are found,
@@ -40,7 +40,7 @@ class OSV:
         """
         A helper method to extract just the CVE/GHSA IDs from a PURL query.
         """
-        data = self.query_osv(purl)
+        data = self.query_for_vulnerabilities(purl)
         vulns = data.get('vulns', [])
         return [v.get('id') for v in vulns]
 
