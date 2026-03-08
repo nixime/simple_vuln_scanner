@@ -12,8 +12,6 @@ template="examples/template.xlsx"
 template_start_row=3
 # (optional) Max lenght of the description when written into the template
 template_max_description_char=50
-# (optional) Combine all the BOMs into a single worksheet in the excel file
-combine_all_boms=False
 # (optional) Should the CVSS Vector be split into individual parts and made available in the template?
 split_cvss_score=True
 # (optional) Column locations (1 based) where NVD data should be written on each row

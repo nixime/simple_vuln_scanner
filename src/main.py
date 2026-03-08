@@ -265,14 +265,15 @@ def main():
         include_zero_counts = config.GLOBAL.include_zero_vuln_components
     if hasattr(config.GLOBAL,"ignore_defferred"):
         include_deferred_vulns = not config.GLOBAL.ignore_defferred
-    if hasattr(config.TEMPLATE,"combine_all_sboms"):
-        combine_sboms = config.TEMPLATE.combine_all_boms
 
     # Run through each system configuration in the global list
     for system in config.GLOBAL.input_configs:
         system_config = nvdconfig.SystemConfigFile(system)
         clean_system_name=system_config.name[:31]
         print(f"System: {system} / {clean_system_name}")
+
+        if hasattr(system_config,"combine_all_boms"):
+            combine_sboms = system_config.combine_all_boms
 
         wb = load_workbook(template_file)
         template_name = wb.sheetnames[0]
