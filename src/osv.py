@@ -3,9 +3,11 @@ from typing import Dict, List, Optional, Any
 
 class OSV:
     __base_osv_url = "https://api.osv.dev/v1/query"
+    __validate_certificate = True
 
-    def __init__(self, timeout: int = 10):
+    def __init__(self, timeout: int = 10, validate_cert=True):
         self.timeout = timeout
+        self.__validate_certificate = validate_cert
 
     
     def query_for_vulnerabilities(self, purl: str) -> Dict[str, Any]:
@@ -24,9 +26,10 @@ class OSV:
             response = requests.post(
                 self.__base_osv_url, 
                 json=payload, 
-                timeout=self.timeout
+                timeout=self.timeout,
+                verify=self.__validate_certificate
             )
-            
+
             # OSV returns a 200 OK even if no vulnerabilities are found,
             # but it will return an empty JSON object {}
             response.raise_for_status()

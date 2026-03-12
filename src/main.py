@@ -247,10 +247,14 @@ def main():
     if config is None:
         config = nvdconfig.NVDConfigFile('config.ini')
 
-    nvd_obj=nvd.NVD(config.NVD.api_key)
-    osv_obj=osv.OSV(20)
-    kev_obj=cisa.KEV(True)
-    kev_obj.load_kevs( )
+    validate_certificates = True
+    if hasattr(config.GLOBAL,"ignore_certificate_errors"):
+        validate_certificates = config.GLOBAL.ignore_certificate_errors
+
+    nvd_obj=nvd.NVD(config.NVD.api_key, validate_certificates)
+    osv_obj=osv.OSV(20, validate_certificates)
+    kev_obj=cisa.KEV(validate_certificates)
+    kev_obj.load_kevs()
 
     template_file=Path(config.TEMPLATE.template).resolve()
     if not os.path.exists(template_file):
@@ -326,12 +330,19 @@ def main():
                             with open('vulnerability_dump.json', 'w') as f:
                                 json.dump(obj_json, f, indent=4)   
 
-                        for vuln in obj_json['vulnerabilities']:
-                            cve_id, pub_date, cve_desc, cve_status, base_score, vector_st = nvd.NVD.tokenize_cve(vuln['cve'])
-                            #print(f"{component_id} | {cve_id} | {pub_date} | {cve_status} | Score: {base_score} | {vector_st} | {cve_desc[:50]}...")
-                            is_kev = kev_obj.query_cpe(cve_id)
-                            if not include_deferred_vulns or cve_status.lower() == "deferred":
-                                populate_template_sheet(new_sheet, data_row, config.TEMPLATE, clean_name, component_id, cve_id, cve_desc, pub_date, vector_st, base_score, is_kev)
+                        if obj_json["totalResults"] > 0:
+                            for vuln in obj_json['vulnerabilities']:
+                                cve_id, pub_date, cve_desc, cve_status, base_score, vector_st = nvd.NVD.tokenize_cve(vuln['cve'])
+                                #print(f"{component_id} | {cve_id} | {pub_date} | {cve_status} | Score: {base_score} | {vector_st} | {cve_desc[:50]}...")
+                                is_kev = kev_obj.query_cpe(cve_id)
+                                if not include_deferred_vulns or cve_status.lower() == "deferred":
+                                    populate_template_sheet(new_sheet, data_row, config.TEMPLATE, clean_name, component_id, cve_id, cve_desc, pub_date, vector_st, base_score, is_kev)
+                                    data_row=data_row+1
+                                    row_count=row_count+1
+                        else:
+                            print(f"No Vulnerabilities Found | {component_id} ")
+                            if include_zero_counts:
+                                populate_template_sheet(new_sheet, data_row, config.TEMPLATE, clean_name, component_id, 'None', 'No Vulnerabilities Found', '0/0/0 00:00:00', 'N/A', 0, False)
                                 data_row=data_row+1
                                 row_count=row_count+1
 

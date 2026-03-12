@@ -54,10 +54,14 @@ class SystemConfigFile:
 
     def _parse_value(self, key, value):
         value = value.strip('"')
+        value = value.strip("'")
 
         if key.casefold() == "boms".casefold():
             return [item.strip() for item in value.split(',')]
-        
+
+        if value.lower() in ['true', 'yes', 'on']: return True
+        if value.lower() in ['false', 'no', 'off']: return False
+
         try:
             if '.' in value: return float(value)
             return int(value)
