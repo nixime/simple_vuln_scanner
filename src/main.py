@@ -248,8 +248,8 @@ def main():
         config = nvdconfig.NVDConfigFile('config.ini')
 
     validate_certificates = True
-    if hasattr(config.GLOBAL,"ignore_certificate_errors"):
-        validate_certificates = config.GLOBAL.ignore_certificate_errors
+    if hasattr(config.GLOBAL,"validate_remote_certificate"):
+        validate_certificates = config.GLOBAL.validate_remote_certificate
 
     nvd_obj=nvd.NVD(config.NVD.api_key, validate_certificates)
     osv_obj=osv.OSV(20, validate_certificates)
@@ -279,9 +279,10 @@ def main():
         if hasattr(system_config,"combine_all_boms"):
             combine_sboms = system_config.combine_all_boms
 
-        wb = load_workbook(template_file)
+        wb = load_workbook(filename=template_file, keep_vba=True)
         template_name = wb.sheetnames[0]
         template_sheet = wb[template_name]
+        template_root_name, template_ext = os.path.splitext(template_file)
         new_sheet = None
         row_count=0
 
@@ -381,7 +382,7 @@ def main():
                 apply_data_validation_rules(new_sheet, config.TEMPLATE.template_start_row, row_count-1)
 
         wb.remove(wb[template_name])
-        wb.save(f"{clean_system_name}.xlsx")
+        wb.save(f"{clean_system_name}{template_ext}")
 
 
 if __name__ == "__main__":

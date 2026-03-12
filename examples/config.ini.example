@@ -8,7 +8,7 @@ ignore_defferred=True
 include_zero_vuln_components=False
 
 [TEMPLATE]
-template="examples/template.xlsx"
+template="examples/template.xlsm"
 template_start_row=3
 # (optional) Max lenght of the description when written into the template
 template_max_description_char=50
