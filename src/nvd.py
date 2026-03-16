@@ -2,6 +2,9 @@ import json
 from cvss_converter.converter import cvss2_to_cvss3
 import requests
 
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 
 class NVD:
     __base_nvd_url = 'https://services.nvd.nist.gov/rest/json/cves/2.0'

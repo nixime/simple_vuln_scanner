@@ -1,6 +1,10 @@
 import requests
 from typing import Dict, List, Optional, Any
 
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+
 class OSV:
     __base_osv_url = "https://api.osv.dev/v1/query"
     __validate_certificate = True
