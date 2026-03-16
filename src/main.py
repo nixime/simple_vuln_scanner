@@ -100,7 +100,7 @@ def populate_template_sheet(new_sheet, data_row, config, bom_name, component_id,
         new_sheet.cell(row=data_row, column=config.column_id_cpe).value = component_id
     if hasattr(config, "column_id_cve"):
         new_sheet.cell(row=data_row, column=config.column_id_cve).value = vuln_id
-    if hasattr(config,"template_max_description_char"):
+    if hasattr(config,"template_max_description_char") and len(vuln_desc) > config.template_max_description_char:
         new_sheet.cell(row=data_row, column=config.column_id_description).value = f"{vuln_desc[:config.template_max_description_char]} (truncated)"
     else:
         new_sheet.cell(row=data_row, column=config.column_id_description).value = vuln_desc
@@ -298,6 +298,7 @@ def main():
                     new_sheet.auto_filter.ref = template_sheet.auto_filter.ref
                 copy_data_validations(template_sheet, new_sheet)
                 data_row = config.TEMPLATE.template_start_row
+                row_count = 0
 
             if combine_sboms:
                 new_sheet.title = f"RA_{clean_system_name}"
@@ -371,15 +372,15 @@ def main():
                                 row_count=row_count+1
 
 
-                # If each BOM is seperate, then format once the sheet is done
-                if not combine_sboms:
-                    apply_formatting_to_range(new_sheet, config.TEMPLATE.template_start_row, config.TEMPLATE.template_start_row + 1, row_count-1)
-                    apply_data_validation_rules(new_sheet, config.TEMPLATE.template_start_row, row_count-1)
-
-            # If we had combined all the SBOMs, then to avoid over formmating just do it once after the entire list is complete
-            if combine_sboms:
+            # If each BOM is seperate, then format once the sheet is done
+            if not combine_sboms:
                 apply_formatting_to_range(new_sheet, config.TEMPLATE.template_start_row, config.TEMPLATE.template_start_row + 1, row_count-1)
                 apply_data_validation_rules(new_sheet, config.TEMPLATE.template_start_row, row_count-1)
+
+        # If we had combined all the SBOMs, then to avoid over formmating just do it once after the entire list is complete
+        if combine_sboms:
+            apply_formatting_to_range(new_sheet, config.TEMPLATE.template_start_row, config.TEMPLATE.template_start_row + 1, row_count-1)
+            apply_data_validation_rules(new_sheet, config.TEMPLATE.template_start_row, row_count-1)
 
         wb.remove(wb[template_name])
         wb.save(f"{clean_system_name}{template_ext}")
