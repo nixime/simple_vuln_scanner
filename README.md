@@ -1,9 +1,10 @@
 # NVD & OSV BOM Scanner
 
+> **AI Disclosure:** Parts of the code in this repository were developed through a collaboration between human expertise and AI assistance. The core logic has been manually reviewed, tweaked, and tested to ensure mathematical accuracy and stability.
+
 This tool aggregates vulnerability data from the **National Vulnerability Database (NVD)** and the **Google Open Source Vulnerability (OSV)** database to populate a custom Excel template. The tool supports ingesting **CSV** or **CycloneDX** files containing CPEs or package identifiers (PURL).
 
 There is also a [migration script](README2.md), to enable copying manually populated data from a prior assessment to the newly scanned content.
-
 
 ## ⚠️ Important Considerations
 
