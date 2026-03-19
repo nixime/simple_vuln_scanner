@@ -21,7 +21,7 @@ This section manages how data is mapped to your Excel file.
 * **`split_cvss_score`**: If `True`, splits the CVSS vector into individual parts for the template.
 
 #### Column Mapping
-The tool allows granular control over which column in your Excel template receives specific data points (1-based index). None of these values are required and you can choose which ones to include or not include in your script.
+The tool allows granular control over which column in your Excel template receives specific data points, either letters or a 1-based index integer are allowed. None of these values are required and you can choose which ones to include or not include in your script.
 
 | Parameter | Description |
 | :--- | :--- |
@@ -46,7 +46,7 @@ The tool allows granular control over which column in your Excel template receiv
 You can inject static Excel formulas into specific columns to perform post-processing calculations. 'x' must be replaced by an incrementing number such that each number has both and id and value column identified (e.g column_static_1_id, column_static_1_value, column_static_2_id, etc)
 
 * **`column_static_x_id`**: The column index within the template where the static content will be injected
-* **`column_static_x_value`**: A formula or other static data to inject into the excel file.
+* **`column_static_x_value`**: (OPTIONAL) A formula or other static data to inject into the excel file. If not provided, then the existing formula in the cell will be used and copied
 
 ### [RATE_LIMITER]
 This will be applied to total API calls, and not individual (e.g. NVD, OSV) calls themselves.

@@ -1,6 +1,6 @@
 import configparser
 import os
-
+from openpyxl.utils.cell import column_index_from_string
 
 class NVDConfigFile:
     def __init__(self, file_path):
@@ -25,6 +25,14 @@ class NVDConfigFile:
         if section.casefold() == "GLOBAL".casefold():
             if key.casefold() == "input_configs".casefold():
                 return [item.strip() for item in value.split(',')]
+
+
+        if section.casefold() == "TEMPLATE".casefold():
+            if key.lower().startswith("column") and not key.lower().endswith("value"):
+                try:
+                    return(int(value))
+                except ValueError:
+                    return column_index_from_string(value)
 
         if value.lower() in ['true', 'yes', 'on']: return True
         if value.lower() in ['false', 'no', 'off']: return False

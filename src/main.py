@@ -14,6 +14,7 @@ from collections import namedtuple
 from openpyxl import load_workbook
 from openpyxl.utils import range_boundaries, get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
+from openpyxl.formula.translate import Translator
 from cyclonedx.model.bom import Bom
 # Custom Imports
 import nvdconfig
@@ -105,7 +106,7 @@ def populate_template_sheet(new_sheet, data_row, config, bom_name, component_id,
     else:
         new_sheet.cell(row=data_row, column=config.column_id_description).value = vuln_desc
     if hasattr(config, "column_id_publish_date"):
-        new_sheet.cell(row=data_row, column=config.column_id_publish_date).value = pub_date
+        new_sheet.cell(row=data_row, column=config.column_id_publish_date).value = pub_date[:10]
     if hasattr(config, "column_id_cvss"):
         new_sheet.cell(row=data_row, column=config.column_id_cvss).value = vector_str
     if hasattr(config, "column_id_base_score"):
@@ -134,13 +135,6 @@ def populate_template_sheet(new_sheet, data_row, config, bom_name, component_id,
                 new_sheet.cell(row=data_row, column=config.column_split_cvss_a).value = cvss_tokens['A']
         except TypeError as e:
             print(f"Invalid CVSS type, {e}")
-
-    static_cols=1
-    while hasattr(config,f"column_static_{static_cols}_id") and hasattr(config,f"column_static_{static_cols}_value"):
-        static_col_id = getattr(config,f"column_static_{static_cols}_id")
-        static_val = str(getattr(config,f"column_static_{static_cols}_value"))
-        new_sheet.cell(row=data_row, column=static_col_id).value = static_val.replace("{row}",f"{data_row}")
-        static_cols=static_cols+1
 
 def copy_data_validations(source_ws, dest_ws):
     '''
@@ -228,6 +222,25 @@ def apply_data_validation_rules(worksheet, source_row_idx, count):
         if target_dv:
             target_dv.ranges.add(target_range)
 
+def apply_static_content(config, source, destination, start_row, end_row):
+    static_cols=1
+    while hasattr(config,f"column_static_{static_cols}_id"):
+        static_col_id = getattr(config,f"column_static_{static_cols}_id")
+        
+        if hasattr(config,f"column_static_{static_cols}_value"):
+            static_val = str(getattr(config,f"column_static_{static_cols}_value"))
+            for row in range(start_row, end_row, 1):
+                destination.cell(row=row, column=static_col_id).value = static_val.replace("{row}",f"{row}")
+
+        else:
+            formula_string = source.cell(row=start_row, column=static_col_id).value
+            origin_cell_str = f"{get_column_letter(static_col_id)}{start_row}"
+            for row in range(start_row, end_row, 1):
+                new_cell_str = f"{get_column_letter(static_col_id)}{row}"
+                destination.cell(row=row, column=static_col_id).value = Translator(formula_string, origin=origin_cell_str).translate_formula(new_cell_str)
+
+        static_cols=static_cols+1
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -237,6 +250,8 @@ def main():
     parser.add_argument("--config", type=str, required=False, help="Path to the .ini configuration file")
     parser.add_argument("--load", type=str, required=False, help="Load a pre-existing JSON dump for testing purposes")
     parser.add_argument("--dump", action='store_true', required=False, help="Dump the last JSON object downloaded")
+    parser.add_argument("--outdir", type=str, required=False, help="Output directory for the generated file")
+    parser.add_argument("--system_override", type=str, required=False, help="System.ini file to use in place of the defined value in the configuration file")
     args = parser.parse_args()
 
     config = None
@@ -270,8 +285,14 @@ def main():
     if hasattr(config.GLOBAL,"ignore_defferred"):
         include_deferred_vulns = not config.GLOBAL.ignore_defferred
 
+    system_configs=None
+    if args.system_override:
+        system_configs = [args.system_override]
+    else:
+        system_configs = config.GLOBAL.input_configs
+
     # Run through each system configuration in the global list
-    for system in config.GLOBAL.input_configs:
+    for system in system_configs:
         system_config = nvdconfig.SystemConfigFile(system)
         clean_system_name=system_config.name[:31]
         print(f"System: {system} / {clean_system_name}")
@@ -280,18 +301,28 @@ def main():
             combine_sboms = system_config.combine_all_boms
 
         wb = load_workbook(filename=template_file, keep_vba=True)
-        template_name = wb.sheetnames[0]
+        if hasattr(config.TEMPLATE,"template_sheet_name"):
+            template_name = config.TEMPLATE.template_sheet_name
+        else:
+            template_name = wb.sheetnames[0]
+        
         template_sheet = wb[template_name]
         template_root_name, template_ext = os.path.splitext(template_file)
         new_sheet = None
+
+        # If everything is being combined, don't duplicate sheets
+        if combine_sboms:
+            new_sheet = template_sheet
+
         row_count=0
+        data_row = config.TEMPLATE.template_start_row
 
         # For each system parse the list of BOMs to scan. Each BOM gets a unique sheet within the outputed excel file
         for bom in system_config.boms:
             print(f"BOM: {bom}")
             clean_name=Path(bom).stem[:31]
 
-            if new_sheet is None or not combine_sboms:
+            if not combine_sboms:
                 new_sheet = wb.copy_worksheet(template_sheet)
                 # Check if the source has an auto-filter, and clone that over as well
                 if template_sheet.auto_filter.ref:
@@ -299,10 +330,6 @@ def main():
                 copy_data_validations(template_sheet, new_sheet)
                 data_row = config.TEMPLATE.template_start_row
                 row_count = 0
-
-            if combine_sboms:
-                new_sheet.title = f"RA_{clean_system_name}"
-            else:
                 new_sheet.title = f"RA_{clean_name}"
 
             csv_column_id = 0
@@ -374,16 +401,23 @@ def main():
 
             # If each BOM is seperate, then format once the sheet is done
             if not combine_sboms:
+                apply_static_content(config.TEMPLATE, template_sheet, new_sheet, config.TEMPLATE.template_start_row, row_count-1)
                 apply_formatting_to_range(new_sheet, config.TEMPLATE.template_start_row, config.TEMPLATE.template_start_row + 1, row_count-1)
                 apply_data_validation_rules(new_sheet, config.TEMPLATE.template_start_row, row_count-1)
 
         # If we had combined all the SBOMs, then to avoid over formmating just do it once after the entire list is complete
         if combine_sboms:
+            apply_static_content(config.TEMPLATE, template_sheet, new_sheet, config.TEMPLATE.template_start_row, row_count-1)
             apply_formatting_to_range(new_sheet, config.TEMPLATE.template_start_row, config.TEMPLATE.template_start_row + 1, row_count-1)
             apply_data_validation_rules(new_sheet, config.TEMPLATE.template_start_row, row_count-1)
 
-        wb.remove(wb[template_name])
-        wb.save(f"{clean_system_name}{template_ext}")
+        if not combine_sboms:
+            wb.remove(wb[template_name])
+            
+        if args.outdir:
+            wb.save(f"{args.outdir}/{clean_system_name}{template_ext}")
+        else:
+            wb.save(f"{clean_system_name}{template_ext}")
 
 
 if __name__ == "__main__":

@@ -15,30 +15,30 @@ template_max_description_char=50
 # (optional) Should the CVSS Vector be split into individual parts and made available in the template?
 split_cvss_score=True
 # (optional) Column locations (1 based) where NVD data should be written on each row
-column_id_bom=2
-column_id_cpe=3
-column_id_cve=4
-column_id_description=5
-column_id_publish_date=6
-column_id_cvss=7
-column_id_base_score=9
-column_id_is_kev=8
+column_id_bom=B
+column_id_cpe=C
+column_id_cve=D
+column_id_description=E
+column_id_publish_date=F
+column_id_cvss=G
+column_id_base_score=H
+column_id_is_kev=I
 # (optional) If the base CVSS score should be split into individual elements specify the details here
-column_split_cvss_av=13
-column_split_cvss_ac=14
-column_split_cvss_pr=15
-column_split_cvss_ui=16
-column_split_cvss_s=17
-column_split_cvss_c=18
-column_split_cvss_i=19
-column_split_cvss_a=20
+column_split_cvss_av=M
+column_split_cvss_ac=N
+column_split_cvss_pr=O
+column_split_cvss_ui=P
+column_split_cvss_s=Q
+column_split_cvss_c=R
+column_split_cvss_i=S
+column_split_cvss_a=T
 # (optional) Additional Column Values (static) to add to each row.
-column_static_1_id=22
-column_static_1_value="=GET_CVSS(M{row}, N{row}, O{row}, P{row}, Q{row}, R{row}, S{row}, T{row})"
-column_static_2_id=21
-column_static_2_value='="CVSS:3.0/AV:"&_xlfn.IFS(M{row}="Network","N",M{row}="Adjacent","A",M{row}="Local","L",M{row}="Physical","P")&"/AC:"&LEFT(N{row},1)&"/PR:"&LEFT(O{row},1)&"/UI:"&IF(P{row}="None","N","R")&"/S:"&LEFT(Q{row},1)&"/C:"&LEFT(R{row},1)&"/I:"&LEFT(S{row},1)&"/A:"&LEFT(T{row},1)'
-column_static_3_id=24
-column_static_3_value="=INDEX('Notes'!G4:J7,_xlfn.IFS(V{row}>='Notes'!F4,1,V{row}>='Notes'!F5,2,V{row}>='Notes'!F6,3,V{row}<'Notes'!F6,4),MATCH(W{row},'Notes'!G3:J3,0))"
+column_static_1_id=V
+#column_static_1_value="=GET_CVSS(M{row}, N{row}, O{row}, P{row}, Q{row}, R{row}, S{row}, T{row})"
+column_static_2_id=U
+#column_static_2_value='="CVSS:3.0/AV:"&_xlfn.IFS(M{row}="Network","N",M{row}="Adjacent","A",M{row}="Local","L",M{row}="Physical","P")&"/AC:"&LEFT(N{row},1)&"/PR:"&LEFT(O{row},1)&"/UI:"&IF(P{row}="None","N","R")&"/S:"&LEFT(Q{row},1)&"/C:"&LEFT(R{row},1)&"/I:"&LEFT(S{row},1)&"/A:"&LEFT(T{row},1)'
+column_static_3_id=X
+#column_static_3_value="=INDEX('Notes'!G4:J7,_xlfn.IFS(V{row}>='Notes'!F4,1,V{row}>='Notes'!F5,2,V{row}>='Notes'!F6,3,V{row}<'Notes'!F6,4),MATCH(W{row},'Notes'!G3:J3,0))"
 
 [RATE_LIMITER]
 requests_per_delay="30"
