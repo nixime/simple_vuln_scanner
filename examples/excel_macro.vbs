@@ -1,4 +1,4 @@
-﻿Option VBASupport 1
+Option VBASupport 1
 Option Explicit
 
 ' --- CVSS Weights: Metric Values ---

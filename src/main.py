@@ -16,6 +16,7 @@ from openpyxl.utils import range_boundaries, get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.formula.translate import Translator
 from cyclonedx.model.bom import Bom
+from datetime import datetime
 # Custom Imports
 import nvdconfig
 import nvd
@@ -241,6 +242,13 @@ def apply_static_content(config, source, destination, start_row, end_row):
 
         static_cols=static_cols+1
 
+def valid_date(s):
+    """Custom type for argparse to validate YYYY-MM-DD format."""
+    try:
+        return datetime.strptime(s, "%Y-%m-%d")
+    except ValueError:
+        msg = f"Not a valid date: '{s}'. Expected format: YYYY-MM-DD."
+        raise argparse.ArgumentTypeError(msg)
 
 def main():
     parser = argparse.ArgumentParser(
@@ -252,6 +260,9 @@ def main():
     parser.add_argument("--dump", action='store_true', required=False, help="Dump the last JSON object downloaded")
     parser.add_argument("--outdir", type=str, required=False, help="Output directory for the generated file")
     parser.add_argument("--system_override", type=str, required=False, help="System.ini file to use in place of the defined value in the configuration file")
+    # Adding the date arguments
+    parser.add_argument("--start", help="The start date - format YYYY-MM-DD", type=valid_date)
+    parser.add_argument("--end", help="The end date - format YYYY-MM-DD", type=valid_date, default=datetime.now()) # Optional: defaults to today if not provided)
     args = parser.parse_args()
 
     config = None
@@ -363,17 +374,31 @@ def main():
                             for vuln in obj_json['vulnerabilities']:
                                 cve_id, pub_date, cve_desc, cve_status, base_score, vector_st = nvd.NVD.tokenize_cve(vuln['cve'])
                                 #print(f"{component_id} | {cve_id} | {pub_date} | {cve_status} | Score: {base_score} | {vector_st} | {cve_desc[:50]}...")
+
+                                pub_dt = datetime.fromisoformat(pub_date.replace('Z', '+00:00')).replace(tzinfo=None)
+                                is_after_start = True
+                                is_before_end = True
+
+                                if args.start:
+                                    is_after_start = pub_dt >= args.start
+                                if args.end:
+                                    is_before_end = pub_dt <= args.end
+
                                 is_kev = kev_obj.query_cpe(cve_id)
                                 if not include_deferred_vulns or cve_status.lower() == "deferred":
-                                    populate_template_sheet(new_sheet, data_row, config.TEMPLATE, clean_name, component_id, cve_id, cve_desc, pub_date, vector_st, base_score, is_kev)
-                                    data_row=data_row+1
-                                    row_count=row_count+1
+                                    if is_after_start and is_before_end:
+                                        populate_template_sheet(new_sheet, data_row, config.TEMPLATE, clean_name, component_id, cve_id, cve_desc, pub_date, vector_st, base_score, is_kev)
+                                        data_row=data_row+1
+                                        row_count=row_count+1
+
+
                         else:
                             print(f"No Vulnerabilities Found | {component_id} ")
                             if include_zero_counts:
                                 populate_template_sheet(new_sheet, data_row, config.TEMPLATE, clean_name, component_id, 'None', 'No Vulnerabilities Found', '0/0/0 00:00:00', 'N/A', 0, False)
                                 data_row=data_row+1
                                 row_count=row_count+1
+
 
                     # If it is a PURL then use Googles OSV as the source of vulnerabilities
                     elif component_id.startswith("pkg:"):
@@ -387,10 +412,22 @@ def main():
                         if 'vulns' in obj_json:
                             for vuln in obj_json['vulns']:
                                 cve_id, pub_date, cve_desc, cve_status, base_score, vector_st = osv.OSV.tokenize_vuln(vuln)
-                                is_kev = False
-                                populate_template_sheet(new_sheet, data_row, config.TEMPLATE, clean_name, component_id, cve_id, cve_desc, pub_date, vector_st, base_score, is_kev)
-                                data_row=data_row+1
-                                row_count=row_count+1
+
+                                pub_dt = datetime.fromisoformat(pub_date.replace('Z', '+00:00')).replace(tzinfo=None)
+                                is_after_start = True
+                                is_before_end = True
+
+                                if args.start:
+                                    is_after_start = pub_dt >= args.start
+                                if args.end:
+                                    is_before_end = pub_dt <= args.end
+                                
+                                if is_after_start and is_before_end:
+                                    is_kev = False
+                                    populate_template_sheet(new_sheet, data_row, config.TEMPLATE, clean_name, component_id, cve_id, cve_desc, pub_date, vector_st, base_score, is_kev)
+                                    data_row=data_row+1
+                                    row_count=row_count+1
+                                
                         else:
                             print(f"No Vulnerabilities Found | {component_id} ")
                             if include_zero_counts:

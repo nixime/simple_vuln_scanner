@@ -43,6 +43,7 @@ The script executes the following mathematical sequence:
 2.  Go to `Insert > Module`.
 3.  Paste the code into the module.
 4.  Save the file as an **Excel Macro-Enabled Workbook (.xlsm)**.
+5.  Remove the "Option VBASupport 1" from the top of the Macro
 
 ### For LibreOffice Calc
 1.  Go to `Tools > Macros > Organize Macros > Basic`.
