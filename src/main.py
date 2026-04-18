@@ -22,6 +22,7 @@ import nvdconfig
 import nvd
 import cisa
 import osv
+import epss
 
 def tokenize_cvss3_human(vector_string: str, human_readible: bool=True) -> dict:
     '''
@@ -136,6 +137,12 @@ def populate_template_sheet(new_sheet, data_row, config, bom_name, component_id,
                 new_sheet.cell(row=data_row, column=config.column_split_cvss_a).value = cvss_tokens['A']
         except TypeError as e:
             print(f"Invalid CVSS type, {e}")
+
+def populate_epss_data(new_sheet, config, epss_manager):
+    if hasattr(config, "column_id_epss"):
+        for cve, epss_score, idx in epss_manager:
+            new_sheet.cell(row=idx, column=config.column_id_epss).value = epss_score
+ 
 
 def copy_data_validations(source_ws, dest_ws):
     '''
@@ -371,6 +378,8 @@ def main():
                                 json.dump(obj_json, f, indent=4)   
 
                         if obj_json["totalResults"] > 0:
+                            epss_data = epss.EPSS()
+
                             for vuln in obj_json['vulnerabilities']:
                                 cve_id, pub_date, cve_desc, cve_status, base_score, vector_st = nvd.NVD.tokenize_cve(vuln['cve'])
                                 #print(f"{component_id} | {cve_id} | {pub_date} | {cve_status} | Score: {base_score} | {vector_st} | {cve_desc[:50]}...")
@@ -387,9 +396,14 @@ def main():
                                 is_kev = kev_obj.query_cpe(cve_id)
                                 if not include_deferred_vulns or cve_status.lower() == "deferred":
                                     if is_after_start and is_before_end:
+                                        epss_data.register_cve(cve_id=cve_id, indexer_id=data_row)
                                         populate_template_sheet(new_sheet, data_row, config.TEMPLATE, clean_name, component_id, cve_id, cve_desc, pub_date, vector_st, base_score, is_kev)
                                         data_row=data_row+1
                                         row_count=row_count+1
+
+                            # After the scanning is done, pull the EPSS data. This is done in bulk to save time and API calls
+                            epss_data.query()
+                            populate_epss_data(new_sheet, config.TEMPLATE, epss_data)
 
 
                         else:

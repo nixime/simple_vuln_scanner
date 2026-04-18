@@ -13,7 +13,7 @@ There is also a [migration script](README2.md), to enable copying manually popul
     * **Google OSV:** Used for PURL scanning
 * **CVSS Conversion:** This tool utilizes the `cvss_converter` library to normalize CVSSv2 scores into CVSSv3. Please be aware that this conversion process may result in slight variances in the final base risk assessment compared to original CVSSv2 values.
 * **API Access:** You must register at the [NVD website](https://nvd.nist.gov/) to obtain a personal NVD API key to use this tool.
-
+* **EPSS (Exploit Prediction Scoring System):** A data-driven metric that estimates the probability (0.0 to 1.0) that a software vulnerability will be exploited in the wild within the next 30 days. Unlike CVSS, which measures severity, EPSS measures actual threat and likelihood. This data is pulled from First.org
 
 ## Setup & Installation
 

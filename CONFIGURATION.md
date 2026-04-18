@@ -33,6 +33,7 @@ The tool allows granular control over which column in your Excel template receiv
 | `column_id_cvss` |  Column index for the CVSS score |
 | `column_id_base_score` | Column index for the base CVSS score |
 | `column_id_is_kev` |  Column index to flag if the CVE is in the KEV catalog |
+| `column_id_epss` | Column index to flag if EPSS risk rating should be included |
 | `column_split_cvss_av` | Column index for CVSS Attack Vector |
 | `column_split_cvss_ac` | Column index for CVSS Attack Complexity |
 | `column_split_cvss_pr` | Column index for CVSS Privileges Required |
