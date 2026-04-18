@@ -143,7 +143,6 @@ def populate_epss_data(new_sheet, config, epss_manager):
         for cve, epss_score, idx in epss_manager:
             new_sheet.cell(row=idx, column=config.column_id_epss).value = epss_score
  
-
 def copy_data_validations(source_ws, dest_ws):
     '''
     openpyxl does not copy data validations when a new worksheet is cloned. This method
@@ -230,20 +229,20 @@ def apply_data_validation_rules(worksheet, source_row_idx, count):
         if target_dv:
             target_dv.ranges.add(target_range)
 
-def apply_static_content(config, source, destination, start_row, end_row):
+def apply_static_content(config, source, destination, start_row, count):
     static_cols=1
     while hasattr(config,f"column_static_{static_cols}_id"):
         static_col_id = getattr(config,f"column_static_{static_cols}_id")
         
         if hasattr(config,f"column_static_{static_cols}_value"):
             static_val = str(getattr(config,f"column_static_{static_cols}_value"))
-            for row in range(start_row, end_row, 1):
+            for row in range(start_row, start_row + count, 1):
                 destination.cell(row=row, column=static_col_id).value = static_val.replace("{row}",f"{row}")
 
         else:
             formula_string = source.cell(row=start_row, column=static_col_id).value
             origin_cell_str = f"{get_column_letter(static_col_id)}{start_row}"
-            for row in range(start_row, end_row, 1):
+            for row in range(start_row, start_row + count, 1):
                 new_cell_str = f"{get_column_letter(static_col_id)}{row}"
                 destination.cell(row=row, column=static_col_id).value = Translator(formula_string, origin=origin_cell_str).translate_formula(new_cell_str)
 
@@ -284,7 +283,11 @@ def main():
     if hasattr(config.GLOBAL,"validate_remote_certificate"):
         validate_certificates = config.GLOBAL.validate_remote_certificate
 
-    nvd_obj=nvd.NVD(config.NVD.api_key, validate_certificates)
+    if hasattr(config.GLOBAL, "score_system_ver"):
+        nvd_obj=nvd.NVD(config.NVD.api_key, validate_certificates, config.GLOBAL.score_system_ver)
+    else:
+        nvd_obj=nvd.NVD(config.NVD.api_key, validate_certificates)
+
     osv_obj=osv.OSV(20, validate_certificates)
     kev_obj=cisa.KEV(validate_certificates)
     kev_obj.load_kevs()
@@ -381,7 +384,7 @@ def main():
                             epss_data = epss.EPSS()
 
                             for vuln in obj_json['vulnerabilities']:
-                                cve_id, pub_date, cve_desc, cve_status, base_score, vector_st = nvd.NVD.tokenize_cve(vuln['cve'])
+                                cve_id, pub_date, cve_desc, cve_status, base_score, vector_st = nvd_obj.tokenize_cve(vuln['cve'])
                                 #print(f"{component_id} | {cve_id} | {pub_date} | {cve_status} | Score: {base_score} | {vector_st} | {cve_desc[:50]}...")
 
                                 pub_dt = datetime.fromisoformat(pub_date.replace('Z', '+00:00')).replace(tzinfo=None)
@@ -449,18 +452,17 @@ def main():
                                 data_row=data_row+1
                                 row_count=row_count+1
 
-
             # If each BOM is seperate, then format once the sheet is done
             if not combine_sboms:
-                apply_static_content(config.TEMPLATE, template_sheet, new_sheet, config.TEMPLATE.template_start_row, row_count-1)
-                apply_formatting_to_range(new_sheet, config.TEMPLATE.template_start_row, config.TEMPLATE.template_start_row + 1, row_count-1)
-                apply_data_validation_rules(new_sheet, config.TEMPLATE.template_start_row, row_count-1)
+                apply_static_content(config.TEMPLATE, template_sheet, new_sheet, config.TEMPLATE.template_start_row, row_count)
+                apply_formatting_to_range(new_sheet, config.TEMPLATE.template_start_row, config.TEMPLATE.template_start_row + 1, row_count - 1)
+                apply_data_validation_rules(new_sheet, config.TEMPLATE.template_start_row, row_count)
 
         # If we had combined all the SBOMs, then to avoid over formmating just do it once after the entire list is complete
         if combine_sboms:
-            apply_static_content(config.TEMPLATE, template_sheet, new_sheet, config.TEMPLATE.template_start_row, row_count-1)
-            apply_formatting_to_range(new_sheet, config.TEMPLATE.template_start_row, config.TEMPLATE.template_start_row + 1, row_count-1)
-            apply_data_validation_rules(new_sheet, config.TEMPLATE.template_start_row, row_count-1)
+            apply_static_content(config.TEMPLATE, template_sheet, new_sheet, config.TEMPLATE.template_start_row, row_count)
+            apply_formatting_to_range(new_sheet, config.TEMPLATE.template_start_row, config.TEMPLATE.template_start_row + 1, row_count - 1)
+            apply_data_validation_rules(new_sheet, config.TEMPLATE.template_start_row, row_count)
 
         if not combine_sboms:
             wb.remove(wb[template_name])

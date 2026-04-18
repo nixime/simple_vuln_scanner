@@ -6,4 +6,4 @@ bom_format=json
 # Valid for CSV only
 bom_cpe_column=1
 # (optional) Combine all the BOMs into a single worksheet in the excel file
-combine_all_boms=False
+combine_all_boms=True
