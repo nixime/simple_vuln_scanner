@@ -7,6 +7,7 @@ input_configs="examples/system.ini.example"
 # Should the tool ignore CVE's marked as deferred
 ignore_defferred=True
 include_zero_vuln_components=False
+validate_remote_certificate=True
 
 [TEMPLATE]
 template="examples/template.xlsm"

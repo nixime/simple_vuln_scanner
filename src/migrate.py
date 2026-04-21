@@ -12,39 +12,38 @@ def update_excel_data(source_path, dest_path, match_col, columns, match_col_idx,
         columns (list):
         match_col_idx (str):
     """
-    # Load workbooks
-    wb_src = openpyxl.load_workbook(source_path, data_only=True)
+    wb_src = openpyxl.load_workbook(source_path, data_only=True, read_only=True)
     wb_dst = openpyxl.load_workbook(dest_path)
+    
+    total_updated = 0
 
     for sheet_name in wb_src.sheetnames:
-        if debug:
-            print(f"Processing Sheet {sheet_name}")
+        if sheet_name not in wb_dst.sheetnames:
+            if debug: print(f"Skipping {sheet_name}: Not found in destination.")
+            continue
         
         ws_src = wb_src[sheet_name]
         ws_dst = wb_dst[sheet_name]
 
-        # Create a mapping of {match_value: row_index} for the destination file
-        # This makes the matching process significantly faster (O(n) vs O(n^2))
+        # Map destination: {str(key).strip(): row_index}
         dst_map = {}
         for row in range(1, ws_dst.max_row + 1):
-            key = ws_dst[f"{match_col_idx}{row}"].value
-            if key is not None:
-                dst_map[key] = row
+            val = ws_dst[f"{match_col_idx}{row}"].value
+            if val is not None:
+                dst_map[str(val).strip()] = row
 
-        # Iterate through source rows and update destination if key exists
-        updated_count = 0
         for row in range(1, ws_src.max_row + 1):
-            key = ws_src[f"{match_col_idx}{row}"].value
+            raw_key = ws_src[f"{match_col_idx}{row}"].value
+            key = str(raw_key).strip() if raw_key is not None else None
             
             if key in dst_map:
                 dest_row = dst_map[key]
                 for col in columns:
-                    val = ws_src[f"{col}{row}"].value
-                    ws_dst[f"{col}{dest_row}"] = val
-                updated_count += 1
+                    ws_dst[f"{col}{dest_row}"] = ws_src[f"{col}{row}"].value
+                total_updated += 1
     
     wb_dst.save(dest_path)
-    return(updated_count)
+    return total_updated
 
 
 if __name__ == "__main__":
