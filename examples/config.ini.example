@@ -1,5 +1,6 @@
 [NVD]
 api_key=""
+score_system_ver=3.1
 
 [GLOBAL]
 input_configs="examples/system.ini.example"

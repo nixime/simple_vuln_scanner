@@ -268,7 +268,7 @@ def main():
     parser.add_argument("--system_override", type=str, required=False, help="System.ini file to use in place of the defined value in the configuration file")
     # Adding the date arguments
     parser.add_argument("--start", help="The start date - format YYYY-MM-DD", type=valid_date)
-    parser.add_argument("--end", help="The end date - format YYYY-MM-DD", type=valid_date, default=datetime.now()) # Optional: defaults to today if not provided)
+    parser.add_argument("--end", help="The end date - format YYYY-MM-DD", type=valid_date) # Optional: defaults to today if not provided)
     args = parser.parse_args()
 
     config = None
@@ -384,7 +384,7 @@ def main():
                             epss_data = epss.EPSS()
 
                             for vuln in obj_json['vulnerabilities']:
-                                cve_id, pub_date, cve_desc, cve_status, base_score, vector_st = nvd_obj.tokenize_cve(vuln['cve'])
+                                osv_id, pub_date, cve_desc, cve_status, base_score, vector_st = nvd_obj.tokenize_cve(vuln['cve'])
                                 #print(f"{component_id} | {cve_id} | {pub_date} | {cve_status} | Score: {base_score} | {vector_st} | {cve_desc[:50]}...")
 
                                 pub_dt = datetime.fromisoformat(pub_date.replace('Z', '+00:00')).replace(tzinfo=None)
@@ -396,11 +396,11 @@ def main():
                                 if args.end:
                                     is_before_end = pub_dt <= args.end
 
-                                is_kev = kev_obj.query_cpe(cve_id)
+                                is_kev = kev_obj.query_cpe(osv_id)
                                 if not include_deferred_vulns or cve_status.lower() == "deferred":
                                     if is_after_start and is_before_end:
-                                        epss_data.register_cve(cve_id=cve_id, indexer_id=data_row)
-                                        populate_template_sheet(new_sheet, data_row, config.TEMPLATE, clean_name, component_id, cve_id, cve_desc, pub_date, vector_st, base_score, is_kev)
+                                        epss_data.register_cve(cve_id=osv_id, indexer_id=data_row)
+                                        populate_template_sheet(new_sheet, data_row, config.TEMPLATE, clean_name, component_id, osv_id, cve_desc, pub_date, vector_st, base_score, is_kev)
                                         data_row=data_row+1
                                         row_count=row_count+1
 
@@ -428,7 +428,7 @@ def main():
 
                         if 'vulns' in obj_json:
                             for vuln in obj_json['vulns']:
-                                cve_id, pub_date, cve_desc, cve_status, base_score, vector_st = osv.OSV.tokenize_vuln(vuln)
+                                osv_id, pub_date, cve_desc, cve_status, base_score, vector_st = osv.OSV.tokenize_vuln(vuln)
 
                                 pub_dt = datetime.fromisoformat(pub_date.replace('Z', '+00:00')).replace(tzinfo=None)
                                 is_after_start = True
@@ -441,7 +441,7 @@ def main():
                                 
                                 if is_after_start and is_before_end:
                                     is_kev = False
-                                    populate_template_sheet(new_sheet, data_row, config.TEMPLATE, clean_name, component_id, cve_id, cve_desc, pub_date, vector_st, base_score, is_kev)
+                                    populate_template_sheet(new_sheet, data_row, config.TEMPLATE, clean_name, component_id, osv_id, cve_desc, pub_date, vector_st, base_score, is_kev)
                                     data_row=data_row+1
                                     row_count=row_count+1
                                 

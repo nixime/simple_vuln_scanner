@@ -7,6 +7,7 @@ The tool is controlled via the `config.ini` file. Below is a breakdown of the pr
 
 ### [NVD]
 * **`api_key`**: Your personal NVD API key.
+* **`score_system_ver`**: Not used right now, but indicates the CVSS version to be used. Currently only 3.1 is tested, but 4.0 is under development.
 
 ### [GLOBAL]
 * **`input_configs`**: Path to the system configuration file.
