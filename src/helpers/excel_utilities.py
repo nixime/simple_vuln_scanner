@@ -34,7 +34,7 @@ class ExcelHelper:
                 'alignment': copy.copy(cell.alignment)
             })
 
-        for r_idx in range(start_row, start_row + count):
+        for r_idx in range(start_row, start_row + count - 1):
             for c_idx in range(1, max_col + 1):
                 target_cell = worksheet.cell(row=r_idx, column=c_idx)
                 s = row_styles[c_idx - 1]

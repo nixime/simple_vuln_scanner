@@ -87,8 +87,10 @@ def main():
     args = parser.parse_args()
 
     # Configuration & Resource Initialization
-    config_path = args.config if args.config and os.path.exists(args.config) else 'config.ini'
-    config = config_handler.NVDConfigFile(config_path)
+    config_arg = args.config if args.config and os.path.exists(args.config) else 'config.ini'
+    config_file = Path(config_arg).resolve()
+    config_root = Path(config_file).parent
+    config = config_handler.NVDConfigFile(config_file)
 
     # SSL and Scoring setup
     val_cert = getattr(config.GLOBAL, "validate_remote_certificate", True)
@@ -100,7 +102,7 @@ def main():
     kev_obj = cisa.KEV(val_cert)
     kev_obj.load_kevs()
 
-    template_file = Path(config.TEMPLATE.template).resolve()
+    template_file = Path(config_root) / config.TEMPLATE.template
     if not template_file.exists():
         raise FileNotFoundError(f"Template not found: {template_file}")
 
@@ -112,6 +114,8 @@ def main():
     # Main Processing Loop (Per System)
     for system in system_configs:
         system_config = config_handler.SystemConfigFile(system)
+        system_root_path = Path(system).resolve().parent
+
         clean_system_name = system_config.name[:31]
         combine_sboms = getattr(system_config, "combine_all_boms", False)
 
@@ -127,8 +131,9 @@ def main():
 
         # System SBOM Processing, iterate over each SBOM within a system and gather the data
         for bom in system_config.boms:
-            clean_name = Path(bom).stem[:31]
-            epss_manager = epss.EPSS()
+            full_bom = Path(system_root_path) / bom
+            clean_name = Path(full_bom).stem[:31]
+            epss_manager = epss.EPSS(verify_certificate=val_cert)
 
             # Sheet setup for individual BOM reports
             if not combine_sboms:
@@ -141,7 +146,7 @@ def main():
                 row_count = 0
 
             csv_col = getattr(system_config, "bom_cpe_column", 0)
-            component_list = get_component_list(bom, system_config.bom_format, csv_col)
+            component_list = get_component_list(full_bom, system_config.bom_format, csv_col)
 
             # Component Analysis Loop
             for component_id in component_list:
@@ -201,10 +206,13 @@ def main():
 
             if not combine_sboms:
                 ExcelHelper.apply_static_content(config.TEMPLATE, template_sheet, new_sheet, config.TEMPLATE.template_start_row, row_count)
-                ExcelHelper.apply_formatting_to_range(new_sheet, config.TEMPLATE.template_start_row, data_row, row_count)
+                ExcelHelper.apply_formatting_to_range(new_sheet, config.TEMPLATE.template_start_row, config.TEMPLATE.template_start_row + 1, row_count)
+                ExcelHelper.apply_data_validation_rules(new_sheet, config.TEMPLATE.template_start_row, row_count)
 
         if combine_sboms:
             ExcelHelper.apply_static_content(config.TEMPLATE, template_sheet, new_sheet, config.TEMPLATE.template_start_row, row_count)
+            ExcelHelper.apply_formatting_to_range(new_sheet, config.TEMPLATE.template_start_row, config.TEMPLATE.template_start_row + 1, row_count)
+            ExcelHelper.apply_data_validation_rules(new_sheet, config.TEMPLATE.template_start_row, row_count)
         
         # Workbook cleanup and saving
         if not combine_sboms:

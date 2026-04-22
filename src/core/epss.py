@@ -17,12 +17,15 @@ class EPSS:
         epss_cache (dict): Stores the fetched EPSS scores, percentiles, and metadata.
     """
 
-    def __init__(self):
+    __verify_certificate = True
+
+    def __init__(self, verify_certificate = True):
         """Initializes empty registry and cache dictionaries."""
         # Maps CVE ID to Indexer ID: { "CVE-2021-44228": 12 }
         self.cve_registry = {}
         # Stores the actual EPSS results: { "CVE-2021-44228": { ...data... } }
         self.epss_cache = {}
+        self.__verify_certificate = verify_certificate
 
     def register_cve(self, cve_id, indexer_id):
         """
@@ -60,7 +63,7 @@ class EPSS:
             url = f"https://api.first.org/data/v1/epss?cve={cve_str}"
             
             try:
-                response = requests.get(url, timeout=15)
+                response = requests.get(url, timeout=15, verify=self.__verify_certificate)
                 response.raise_for_status()
                 data = response.json().get("data", [])
                 
