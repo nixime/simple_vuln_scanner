@@ -1,6 +1,7 @@
 [SYSTEM_ID_1]
 name="System 1"
 boms="examples/sbom_1.json, examples/sbom_2.json"
+#template="template.xlsm"
 # Valid formats are csv and json (CycloneDX)
 bom_format=json
 # Valid for CSV only

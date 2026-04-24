@@ -111,10 +111,12 @@ def main():
     osv_obj = osv.OSV(20, val_cert)
     kev_obj = cisa.KEV(val_cert)
     kev_obj.load_kevs()
+    epss_manager = epss.EPSS(verify_certificate=val_cert)
+    api_query_requests = 0
 
-    template_file = Path(config_root) / config.TEMPLATE.template
-    if not template_file.exists():
-        raise FileNotFoundError(f"Template not found: {template_file}")
+    global_template_file = Path(config_root) / config.TEMPLATE.template
+    if not global_template_file.exists():
+        raise FileNotFoundError(f"Template not found: {global_template_file}")
 
     # Global Processing Flags
     include_zero = getattr(config.GLOBAL, "include_zero_vuln_components", False)
@@ -136,11 +138,17 @@ def main():
         combine_sboms = getattr(system_config, "combine_all_boms", False)
 
         # Prepare Workbook
-        wb = load_workbook(filename=template_file, keep_vba=True)
+        local_template_file = global_template_file
+        # If we have a template override for the system, leverage that over the global file. It will be assumed
+        # that the columns in the override template are the same as the global template and settings.
+        if hasattr(system_config, "template"):
+            local_template_file = Path(system_root_path) / getattr(system_config, "template", False)
+
+        wb = load_workbook(filename=local_template_file, keep_vba=True)
         template_name = getattr(config.TEMPLATE, "template_sheet_name", wb.sheetnames[0])
         template_sheet = wb[template_name]
-        _, template_ext = os.path.splitext(template_file)
-        
+        _, template_ext = os.path.splitext(local_template_file)
+
         new_sheet = template_sheet if combine_sboms else None
         data_row = config.TEMPLATE.template_start_row
         row_count = 0
@@ -149,7 +157,6 @@ def main():
         for bom in system_config.boms:
             full_bom = Path(system_root_path) / bom
             clean_name = Path(full_bom).stem[:31]
-            epss_manager = epss.EPSS(verify_certificate=val_cert)
 
             if args.verbose:
                 print(f"  [*] Analyzing SBOM: {full_bom.name}")
@@ -174,10 +181,6 @@ def main():
             for component_id in component_list:
                 # API Rate Limiting Logic
                 limit = config.RATE_LIMITER.requests_per_delay
-                if row_count > 0 and row_count % limit == 0:
-                    if args.verbose:
-                        print(f"    [!] Rate limit reached. Sleeping for {config.RATE_LIMITER.request_delay}s...")
-                    time.sleep(config.RATE_LIMITER.request_delay)
 
                 # Determine Source (NVD for CPE, OSV for PURL)
                 if component_id.startswith("cpe:"):
@@ -193,6 +196,14 @@ def main():
 
                 if args.verbose:
                     print(f"    [?] Querying {source_label} for: {component_id}")
+
+                # Rate limit API Queries to prevent locks, especially with NVD database
+                api_query_requests+=1
+                if api_query_requests > 0 and api_query_requests % limit == 0:
+                    if args.verbose:
+                        print(f"    [!] Rate limit reached. Sleeping for {config.RATE_LIMITER.request_delay}s...")
+                    time.sleep(config.RATE_LIMITER.request_delay)
+                    api_query_requests = 1
 
                 obj_json = source_obj.query_for_vulnerabilities(component_id)
                 vulns_list = obj_json.get('vulnerabilities', obj_json.get('vulns', []))
@@ -213,7 +224,13 @@ def main():
                     v_data = source_obj.tokenize_vuln(vuln)
 
                     # Apply Date and Status filters
-                    pub_dt = datetime.fromisoformat(v_data['published'].replace('Z', '+00:00')).replace(tzinfo=None)
+                    try:
+                        pub_dt = datetime.fromisoformat(v_data['published'].replace('Z', '+00:00')).replace(tzinfo=None)
+                    except (ValueError, KeyError):
+                        if args.verbose:
+                            print(f"    [!] Could not parse date for {v_data.get('cve_id')}, skipping date filter.")
+                        pub_dt = datetime.min # Or handle as per your policy
+                    
                     if (args.start and pub_dt < args.start) or (args.end and pub_dt > args.end):
                         continue
                     if v_data['status'] == "Deferred" and not include_deferred:
@@ -239,6 +256,7 @@ def main():
                     print(f"  [*] Fetching bulk EPSS scores for {clean_name}...")
                 epss_manager.query() 
                 ExcelHelper.populate_epss_data(new_sheet, config.TEMPLATE, epss_manager)
+                epss_manager.clear_registry()
 
             if not combine_sboms:
                 print(f"  [*] Applying Excel Formatting and Content (Individual SBOM)...")
@@ -254,8 +272,12 @@ def main():
         
         # Workbook cleanup and saving
         if not combine_sboms:
-            wb.remove(wb[template_name])
-            
+            if len(wb.sheetnames) > 1:
+                wb.remove(wb[template_name])
+            else:
+                # If it's the only sheet left, keep it and rename it so the user knows why
+                wb[template_name].title = "No_Vulnerabilities_Found"
+
         save_path = f"{args.outdir}/" if args.outdir else ""
         out_file = f"{save_path}{clean_system_name}{template_ext}"
         wb.save(out_file)

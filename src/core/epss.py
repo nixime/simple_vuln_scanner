@@ -18,13 +18,14 @@ class EPSS:
     """
 
     __verify_certificate = True
+    __epss_cache = {}
 
     def __init__(self, verify_certificate = True):
         """Initializes empty registry and cache dictionaries."""
         # Maps CVE ID to Indexer ID: { "CVE-2021-44228": 12 }
         self.cve_registry = {}
         # Stores the actual EPSS results: { "CVE-2021-44228": { ...data... } }
-        self.epss_cache = {}
+        self.__epss_cache = {}
         self.__verify_certificate = verify_certificate
 
     def register_cve(self, cve_id, indexer_id):
@@ -69,7 +70,7 @@ class EPSS:
                 
                 for entry in data:
                     cve_id = entry['cve']
-                    self.epss_cache[cve_id] = {
+                    self.__epss_cache[cve_id] = {
                         "indexer_id": self.cve_registry.get(cve_id),
                         "epss": float(entry['epss']),
                         "percentile": float(entry['percentile']),
@@ -94,16 +95,22 @@ class EPSS:
             EPSSDataMissingError: If the CVE was never queried or not found in the API.
         """
         clean_id = cve_id.upper().strip()
-        if clean_id not in self.epss_cache:
+        if clean_id not in self.__epss_cache:
             raise EPSSDataMissingError(
                 f"No EPSS data available for {clean_id}. Ensure query() was "
                 f"called and the CVE exists in the FIRST.org database."
             )
         
-        data = self.epss_cache[clean_id]
+        data = self.__epss_cache[clean_id]
         indexer = data.get("indexer_id")
         
         return data, indexer
+    
+    def clear_registry(self):
+        """
+        Clear the internal cache
+        """
+        self.__epss_cache.clear()
 
     def __iter__(self):
         """
@@ -112,5 +119,5 @@ class EPSS:
         Yields:
             tuple: (cve_id, epss_score, indexer_id)
         """
-        for cve_id, data in self.epss_cache.items():
+        for cve_id, data in self.__epss_cache.items():
             yield cve_id, data['epss'], data.get('indexer_id')
