@@ -68,4 +68,5 @@ This file defines the systems and associated Bills of Materials (BOMs) that the 
 | `name` | **Yes** | A descriptive name for the system being scanned. |
 | `boms` | **Yes** | The file path to the BOM input file. |
 | `bom_format` | **Yes** | The format of the BOM file. Valid options: `csv` or `json` (CycloneDX). |
-| `bom_cpe_column` |  The column index for CPEs if the format is set to `csv`. |
+| `bom_cpe_column` | **No** |  The column index for CPEs if the format is set to `csv`. |
+| `template` | **No** | The template file to use for this system, if overriding the global configuration value. |
