@@ -1,9 +1,5 @@
 import requests
 
-class EPSSDataMissingError(Exception):
-    """Exception raised when an EPSS lookup is attempted for a CVE not in the local cache."""
-    pass
-
 class EPSS:
     """
     Manages bulk retrieval and caching of Exploit Prediction Scoring System (EPSS) data.
@@ -96,10 +92,16 @@ class EPSS:
         """
         clean_id = cve_id.upper().strip()
         if clean_id not in self.__epss_cache:
-            raise EPSSDataMissingError(
-                f"No EPSS data available for {clean_id}. Ensure query() was "
-                f"called and the CVE exists in the FIRST.org database."
-            )
+            # Fallback data structure
+            default_data = {
+                'epss': "N/A", 
+                'percentile': "N/A", 
+                'date': "N/A"
+            }
+            # We still want to return the indexer_id so the Excel sheet 
+            # knows which row this 'N/A' belongs to
+            indexer = self.cve_registry.get(clean_id) 
+            return default_data, indexer
         
         data = self.__epss_cache[clean_id]
         indexer = data.get("indexer_id")

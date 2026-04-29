@@ -33,6 +33,8 @@ import core.nvd as nvd
 import core.cisa as cisa
 import core.osv as osv
 import core.epss as epss
+import core.dependency_track as dt
+import core.aggregator as va
 from helpers.excel_utilities import ExcelHelper
 
 def get_component_list(file: str, type: str, csv_column_id: int):
@@ -104,15 +106,19 @@ def main():
     val_cert = getattr(config.GLOBAL, "validate_remote_certificate", True)
     score_ver = getattr(config.GLOBAL, "score_system_ver", "3.1")
 
-    # API Client Factory
+    # If command line overrides verbose logging, then set the config file accordingly
     if args.verbose:
-        print("[*] Initializing API clients and loading KEV database...")
-    nvd_obj = nvd.NVD(config.NVD.api_key, val_cert, score_ver)
-    osv_obj = osv.OSV(20, val_cert)
+        setattr(config.GLOBAL,"verbose_logging", args.verbose)
+
+
+    if args.verbose:
+        print("[*] Initializing API clients and loading KEV database...")    
     kev_obj = cisa.KEV(val_cert)
     kev_obj.load_kevs()
     epss_manager = epss.EPSS(verify_certificate=val_cert)
-    api_query_requests = 0
+
+    sources = getattr(config.GLOBAL,"source_locations", "nvd,osv")
+    aggregator = va.VulnerabilityAggregator(sources, config, val_cert, score_ver)
 
     global_template_file = Path(config_root) / config.TEMPLATE.template
     if not global_template_file.exists():
@@ -156,7 +162,8 @@ def main():
         # System SBOM Processing, iterate over each SBOM within a system and gather the data
         for bom in system_config.boms:
             full_bom = Path(system_root_path) / bom
-            clean_name = Path(full_bom).stem[:31]
+            full_bom_name = Path(full_bom).stem
+            clean_name = full_bom_name[:31]
 
             if args.verbose:
                 print(f"  [*] Analyzing SBOM: {full_bom.name}")
@@ -179,40 +186,13 @@ def main():
 
             # Component Analysis Loop
             for component_id in component_list:
-                # API Rate Limiting Logic
-                limit = config.RATE_LIMITER.requests_per_delay
-
-                # Determine Source (NVD for CPE, OSV for PURL)
-                if component_id.startswith("cpe:"):
-                    source_obj = nvd_obj
-                    source_label = "NVD"
-                elif component_id.startswith("pkg:"):
-                    source_obj = osv_obj
-                    source_label = "OSV"
-                else:
-                    if args.verbose:
-                        print(f"    [-] Skipping unknown identifier format: {component_id}")
-                    continue
-
-                if args.verbose:
-                    print(f"    [?] Querying {source_label} for: {component_id}")
-
-                # Rate limit API Queries to prevent locks, especially with NVD database
-                api_query_requests+=1
-                if api_query_requests > 0 and api_query_requests % limit == 0:
-                    if args.verbose:
-                        print(f"    [!] Rate limit reached. Sleeping for {config.RATE_LIMITER.request_delay}s...")
-                    time.sleep(config.RATE_LIMITER.request_delay)
-                    api_query_requests = 1
-
-                obj_json = source_obj.query_for_vulnerabilities(component_id)
-                vulns_list = obj_json.get('vulnerabilities', obj_json.get('vulns', []))
+                vulns_list = aggregator.get_vulnerabilities(component_id)
 
                 # Handle components with no identified vulnerabilities
                 if not vulns_list:
                     if include_zero:
                         ExcelHelper.populate_template_sheet(
-                            new_sheet, data_row, config.TEMPLATE, clean_name, component_id, 
+                            new_sheet, data_row, config.TEMPLATE, full_bom_name, component_id, 
                             'None', 'No Vulnerabilities Found', 'N/A', 'N/A', 0, False
                         )
                         data_row += 1
@@ -220,9 +200,7 @@ def main():
                     continue
 
                 # Vulnerability Detail Extraction
-                for vuln in vulns_list:
-                    v_data = source_obj.tokenize_vuln(vuln)
-
+                for v_data in vulns_list:
                     # Apply Date and Status filters
                     try:
                         pub_dt = datetime.fromisoformat(v_data['published'].replace('Z', '+00:00')).replace(tzinfo=None)
@@ -243,7 +221,7 @@ def main():
 
                     # Populate Excel row
                     ExcelHelper.populate_template_sheet(
-                        new_sheet, data_row, config.TEMPLATE, clean_name, component_id,
+                        new_sheet, data_row, config.TEMPLATE, full_bom_name, component_id,
                         v_data['cve_id'], v_data['description'], v_data['published'],
                         v_data['vector'], v_data['base_score'], is_kev
                     )
@@ -253,7 +231,7 @@ def main():
             # Finalize Report and append secondary risk data
             if row_count > 0:
                 if args.verbose:
-                    print(f"  [*] Fetching bulk EPSS scores for {clean_name}...")
+                    print(f"  [*] Fetching bulk EPSS scores for {full_bom_name}...")
                 epss_manager.query() 
                 ExcelHelper.populate_epss_data(new_sheet, config.TEMPLATE, epss_manager)
                 epss_manager.clear_registry()

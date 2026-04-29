@@ -2,13 +2,11 @@
 
 > **AI Disclosure:** Parts of the code in this repository were developed through a collaboration between human expertise and AI assistance. The core logic has been manually reviewed, tweaked, and tested to ensure mathematical accuracy and stability.
 
-This tool aggregates vulnerability data from the **National Vulnerability Database (NVD)** and the **Google Open Source Vulnerability (OSV)** database to populate a custom Excel template. The tool supports ingesting **CSV** or **CycloneDX** files containing CPEs or package identifiers (PURL).
-
-There is also a [migration script](README2.md), to enable copying manually populated data from a prior assessment to the newly scanned content.
+This tool aggregates vulnerability data from the **National Vulnerability Database (NVD)** and the **Google Open Source Vulnerability (OSV)** database to populate a custom Excel template. The tool supports ingesting **CSV** or **CycloneDX** files containing CPEs or package identifiers (PURL). The tool has the capability to use Dependency track instead of these sources, but use is experiemental.
 
 ## ⚠️ Important Considerations
 
-* **Dual-Source Vulnerability Scanning:** This tool aggregates vulnerability data from two primary sources:
+* **Dual-Source Vulnerability Scanning:** This tool aggregates vulnerability data from two primary sources (unless using dependency track):
     * **NVD:** Used for CPE Scanning (Requires a registered NVD API key).
     * **Google OSV:** Used for PURL scanning
 * **CVSS Conversion:** This tool utilizes the custom code to normalize CVSSv2 scores into CVSSv3. Please be aware that this conversion process may result in slight variances in the final base risk assessment compared to original CVSSv2 values.

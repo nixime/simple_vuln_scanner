@@ -1,10 +1,16 @@
 [SYSTEM_ID_1]
 name="System 1"
+
+## TEMPLATE / RESULT FIELDS ##
+# (optional) Override the global template and use a specific one for this system. Columns will be used from global settings
+template="template.xlsm"
+# (optional) Combine all the BOMs into a single worksheet in the excel file
+combine_all_boms=True
+
+## BOM SPECIFIC FIELDS ##
 boms="examples/sbom_1.json, examples/sbom_2.json"
-#template="template.xlsm"
 # Valid formats are csv and json (CycloneDX)
 bom_format=json
 # Valid for CSV only
 bom_cpe_column=1
-# (optional) Combine all the BOMs into a single worksheet in the excel file
-combine_all_boms=True
+

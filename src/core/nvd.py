@@ -1,6 +1,8 @@
 import json
 import requests
 import urllib3
+import time
+from collections import deque
 from core.vsource import VulnerabilitySource
 
 # Suppress warnings for environments with inspection proxies
@@ -23,7 +25,11 @@ class NVD(VulnerabilitySource):
     __verify_certificate = True
     __metric_version = "3.1"
 
-    def __init__(self, key, verify_certificate=True, metric_version="3.1"):
+    __last_query_time = 0
+    __max_requests_per_window=50
+    __time_in_each_window=30
+
+    def __init__(self, key, verify_certificate=True, metric_version="3.1", max_requests=50, window_size=30, verbose_logging=False):
         """
         Initializes the NVD client.
 
@@ -32,34 +38,78 @@ class NVD(VulnerabilitySource):
             verify_certificate (bool): Whether to verify SSL. Defaults to True.
             metric_version (str): The target CVSS version for the report.
         """
+        super().__init__(verify_certificate, verbose_logging)
         self.__nvd_api_key = key
-        self.__verify_certificate = verify_certificate
         self.__metric_version = str(metric_version)
-    
-    def __query_api(self, query_type, identifier):
+        self.__max_requests_per_window = max_requests
+        self.__time_in_each_window = window_size
+        self.__request_history = deque()
+
+
+    def _wait_for_rate_limit(self):
+        """
+        Ensures we stay within X requests per rolling Y-second window.
+        """
+        now = time.time()
+        
+        # Remove timestamps older than our 30s window
+        while self.__request_history and self.__request_history[0] <= now - self.__time_in_each_window:
+            self.__request_history.popleft()
+
+        # If we are at the limit, wait until the oldest request expires
+        if len(self.__request_history) >= self.__max_requests_per_window:
+            # Calculate sleep time: (Oldest timestamp + 30s) - current time
+            sleep_time = (self.__request_history[0] + self.__time_in_each_window) - now
+            if sleep_time > 0:
+                if self.verbose_logging:
+                    print(f"    [!] Rate limit threshold reached. Sleeping {sleep_time:.2f}s...")
+                time.sleep(sleep_time)
+            
+            # Re-clean after sleeping
+            return self._wait_for_rate_limit()
+
+        # Log the current request timestamp
+        self.__request_history.append(time.time())
+
+
+    def __query_api(self, query_type, identifier, check_rate_limit = True):
         """
         Private method to execute GET requests against the NVD.
 
         Args:
             query_type (str): The NVD query parameter (e.g., 'cpeName').
             identifier (str): The value to search for (the CPE string).
+            check_rate_limit (bool): Indicates if the limit rate check should be performed
 
         Returns:
             dict|None: Parsed JSON data or None if the request failed.
         """
         url = f"{self.__base_nvd_url}?{query_type}={identifier}"
         headers = {'apiKey': self.__nvd_api_key}
-        
+
+        if check_rate_limit:
+            self._wait_for_rate_limit()
+    
         try:
-            response = requests.get(url, headers=headers, verify=self.__verify_certificate)
+            response = requests.get(url, headers=headers, verify=self.validate_certificate)
             if response.status_code == 200:
                 return response.json()
+            elif response.status_code == 429:
+                # NVD tells you exactly how long to wait
+                retry_after = int(response.headers.get("Retry-After", 30))
+                if self.verbose_logging:
+                    print(f"    [!] NVD 429 Error. Server-requested wait: {retry_after}s")
+                time.sleep(retry_after + 1) # Add 1s buffer
+                # Basically resetting our rate limit again
+                self.__request_history.clear()
+                return self.__query_api(query_type, identifier, False) # Retry
             else:
                 print(f"NVD Query Error [{response.status_code}]: {url}")
                 return None
         except requests.exceptions.RequestException as e:
             print(f"NVD Connection Error: {e}")
             return None
+
 
     def query_for_vulnerabilities(self, cpe_name):
         """
@@ -72,6 +122,7 @@ class NVD(VulnerabilitySource):
             dict: The raw API response containing vulnerability data.
         """
         return self.__query_api('cpeName', cpe_name)
+
 
     def tokenize_metrics_block(self, metrics, cve_id="Unknown"):
         """

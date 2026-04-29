@@ -1,8 +1,9 @@
 from abc import ABC, abstractmethod
 
 class VulnerabilitySource(ABC):
-    def __init__(self, validate_cert=True):
+    def __init__(self, validate_cert=True, verbose_logging=False):
         self.validate_certificate = validate_cert
+        self.verbose_logging = verbose_logging
 
     @abstractmethod
     def query_for_vulnerabilities(self, identifier: str) -> dict:

@@ -7,12 +7,21 @@ The tool is controlled via the `config.ini` file. Below is a breakdown of the pr
 
 ### [NVD]
 * **`api_key`**: Your personal NVD API key.
-* **`score_system_ver`**: Not used right now, but indicates the CVSS version to be used. Currently only 3.1 is tested, but 4.0 is under development.
+* **`requests_per_delay`**: Number of API requests allowed before a delay is applied.
+* **`request_delay`**: Duration of the delay in seconds.
+
+### [DT]
+* **`url`**: Base URL where the dependancy track system is hosted (URL part before "/api")
+* **`key`**: Key used for authentication to DT
 
 ### [GLOBAL]
+* **`score_system_ver`**: Not used right now, but indicates the CVSS version to be used. Currently only 3.1 is tested, but 4.0 is under development.
 * **`input_configs`**: Path to the system configuration file.
 * **`ignore_defferred`**: Boolean to skip CVEs marked as deferred.
 * **`include_zero_vuln_components`**: Boolean to include components with no reported vulnerabilities.
+* **`validate_remote_certificate`**: Should we validate the remote HTTPS connections (disable if you are behind proxys or such that interfer)
+* **`source_locations`**: Which type of data sources should be used? Valid values are "osv","nvd" and "dependancy_track". If DT is choosen than the other items will be ignored as it provides both PURL and CPEs.
+* **`verbose_logging`**: Should verbose logging be enabled on the command line
 
 ### [TEMPLATE]
 This section manages how data is mapped to your Excel file.
@@ -50,12 +59,6 @@ You can inject static Excel formulas into specific columns to perform post-proce
 * **`column_static_x_id`**: The column index within the template where the static content will be injected
 * **`column_static_x_value`**: (OPTIONAL) A formula or other static data to inject into the excel file. If not provided, then the existing formula in the cell will be used and copied
 
-### [RATE_LIMITER]
-This will be applied to total API calls, and not individual (e.g. NVD, OSV) calls themselves.
-
-* **`requests_per_delay`**: Number of API requests allowed before a delay is applied.
-* **`request_delay`**: Duration of the delay in seconds.
-
 
 ## System Configuration Reference
 
@@ -70,3 +73,4 @@ This file defines the systems and associated Bills of Materials (BOMs) that the 
 | `bom_format` | **Yes** | The format of the BOM file. Valid options: `csv` or `json` (CycloneDX). |
 | `bom_cpe_column` | **No** |  The column index for CPEs if the format is set to `csv`. |
 | `template` | **No** | The template file to use for this system, if overriding the global configuration value. |
+| `project_uuid` | **No** | The project UUID for the DT instance if leveraging DT instead of NVD and OSV. |

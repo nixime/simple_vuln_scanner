@@ -12,9 +12,10 @@ class OSV(VulnerabilitySource):
     __base_osv_url = "https://api.osv.dev/v1/query"
     __validate_certificate = True
 
-    def __init__(self, timeout: int = 10, validate_cert=True):
+    def __init__(self, timeout: int = 10, validate_cert=True, verbose_logging=False):
+        super().__init__(validate_cert, verbose_logging)
         self.timeout = timeout
-        self.__validate_certificate = validate_cert
+        self.verbose_logging = verbose_logging
 
     
     def query_for_vulnerabilities(self, purl: str) -> Dict[str, Any]:
@@ -34,7 +35,7 @@ class OSV(VulnerabilitySource):
                 self.__base_osv_url, 
                 json=payload, 
                 timeout=self.timeout,
-                verify=self.__validate_certificate
+                verify=self.validate_certificate
             )
 
             # OSV returns a 200 OK even if no vulnerabilities are found,
