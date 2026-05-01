@@ -120,5 +120,94 @@ class TestNVD(unittest.TestCase):
         # print(f"Upgraded Vector: {tokenized['vector']}")
         # print(f"Upgraded Score: {tokenized['base_score']}")
 
+
+    @patch('requests.get')
+    def test_query_vulnerabilities_not_found_returns_empty_dict(self, mock_get):
+        """
+        SCENARIO: The API returns a 404 or a non-200 error code.
+        EXPECTED: Should return {} instead of None.
+        """
+        mock_response = MagicMock()
+        mock_response.status_code = 404
+        mock_get.return_value = mock_response
+
+        result = self.nvd_client.query_for_vulnerabilities("cpe:2.3:a:invalid:product:1.0")
+        
+        self.assertIsInstance(result, dict)
+        self.assertEqual(len(result), 0)
+
+    @patch('requests.get')
+    def test_query_vulnerabilities_connection_error_returns_empty_dict(self, mock_get):
+        """
+        SCENARIO: A network-level exception occurs (RequestException).
+        EXPECTED: Should return {} instead of None.
+        """
+        from requests.exceptions import ConnectionError
+        mock_get.side_effect = ConnectionError("Network Down")
+
+        result = self.nvd_client.query_for_vulnerabilities("cpe:2.3:a:vendor:product:1.0")
+        
+        self.assertIsInstance(result, dict)
+        self.assertEqual(result, {})
+
+    @patch('requests.get')
+    def test_query_vulnerabilities_server_error_returns_empty_dict(self, mock_get):
+        """
+        SCENARIO: The NVD server returns a 500 Internal Server Error.
+        EXPECTED: Should return {} instead of None.
+        """
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_get.return_value = mock_response
+
+        result = self.nvd_client.query_for_vulnerabilities("cpe:2.3:a:vendor:product:1.0")
+        
+        self.assertEqual(result, {})
+
+    @patch('requests.get')
+    @patch('time.sleep', return_value=None) # Don't actually wait during tests
+    def test_nvd_rate_limit_retry(self, mock_sleep, mock_get):
+        """Verifies that NVD client retries after a 429 error."""
+        # Setup: First call returns 429, second returns 200
+        mock_429 = MagicMock(status_code=429)
+        mock_429.headers = {"Retry-After": "30"}
+        
+        mock_200 = MagicMock(status_code=200)
+        mock_200.json.return_value = {"vulnerabilities": []}
+        
+        mock_get.side_effect = [mock_429, mock_200]
+
+        result = self.nvd_client.query_for_vulnerabilities("cpe:2.3:a:any:thing:1.0")
+        
+        self.assertEqual(mock_get.call_count, 2)
+        self.assertEqual(result, {"vulnerabilities": []})
+
+
+    @patch('time.time')
+    @patch('time.sleep')
+    @patch('requests.get')
+    def test_rate_limit_termination(self, mock_get, mock_sleep, mock_time):
+        # Initialize: 2 requests per 10-second window
+        local_nvd = NVD("mock-key", max_requests=2, window_size=10)
+        
+        # Simulate time advancing: 
+        # Call 1 & 2: First request (at t=100)
+        # Call 3 & 4: Second request (at t=101)
+        # Call 5+: Third request (starts at t=102, then jumps to t=112 after sleep)
+        mock_time.side_effect = [100.0, 100.0, 101.0, 101.0, 102.0, 112.0, 112.0]
+
+        # Mock successful responses
+        mock_get.return_value = MagicMock(status_code=200, json=lambda: {"vulnerabilities": []})
+
+        # Request 1 & 2: Should pass immediately
+        local_nvd.query_for_vulnerabilities("cpe:1")
+        local_nvd.query_for_vulnerabilities("cpe:2")
+        
+        # Request 3: Should trigger the loop, see the time jump to 112, and then exit
+        local_nvd.query_for_vulnerabilities("cpe:3")
+
+        # Verify sleep was called once to wait for the window to clear
+        self.assertGreaterEqual(mock_sleep.call_count, 1)
+
 if __name__ == '__main__':
     unittest.main()

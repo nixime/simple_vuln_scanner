@@ -44,12 +44,12 @@ class DependencyTrack(VulnerabilitySource):
                 # CPE not found in DT's mirror; return empty list, not an error
                 return {"vulnerabilities": []}
                 
-            return None
+            return {}
             
         except Exception as e:
-            if self.verbose:
+            if self.verbose_logging:
                 print(f"[-] DT Connection Error for {cpe}: {e}")
-            return None
+            return {}
 
     def tokenize_vuln(self, finding_json):
         """

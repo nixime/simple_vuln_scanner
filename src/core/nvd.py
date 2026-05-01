@@ -48,27 +48,29 @@ class NVD(VulnerabilitySource):
 
     def _wait_for_rate_limit(self):
         """
-        Ensures we stay within X requests per rolling Y-second window.
+        Ensures we stay within X requests per rolling Y-second window using a loop.
         """
-        now = time.time()
-        
-        # Remove timestamps older than our 30s window
-        while self.__request_history and self.__request_history[0] <= now - self.__time_in_each_window:
-            self.__request_history.popleft()
+        while True:
+            now = time.time()
+            
+            # Remove timestamps older than our window
+            while self.__request_history and self.__request_history[0] <= now - self.__time_in_each_window:
+                self.__request_history.popleft()
 
-        # If we are at the limit, wait until the oldest request expires
-        if len(self.__request_history) >= self.__max_requests_per_window:
-            # Calculate sleep time: (Oldest timestamp + 30s) - current time
+            # If we are under the limit, break the loop and log the request
+            if len(self.__request_history) < self.__max_requests_per_window:
+                break
+
+            # Otherwise, wait until the oldest request expires
             sleep_time = (self.__request_history[0] + self.__time_in_each_window) - now
             if sleep_time > 0:
                 if self.verbose_logging:
-                    print(f"    [!] Rate limit threshold reached. Sleeping {sleep_time:.2f}s...")
+                    print(f"    [!] Rate limit reached. Sleeping {sleep_time:.2f}s...")
                 time.sleep(sleep_time)
             
-            # Re-clean after sleeping
-            return self._wait_for_rate_limit()
+            # After sleeping, the loop starts over to re-verify the window state
 
-        # Log the current request timestamp
+        # Log the current request timestamp once the window is clear
         self.__request_history.append(time.time())
 
 
@@ -105,10 +107,10 @@ class NVD(VulnerabilitySource):
                 return self.__query_api(query_type, identifier, False) # Retry
             else:
                 print(f"NVD Query Error [{response.status_code}]: {url}")
-                return None
+                return {}
         except requests.exceptions.RequestException as e:
             print(f"NVD Connection Error: {e}")
-            return None
+            return {}
 
 
     def query_for_vulnerabilities(self, cpe_name):
