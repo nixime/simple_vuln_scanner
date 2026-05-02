@@ -186,7 +186,9 @@ def main():
 
             # Component Analysis Loop
             for component_id in component_list:
-                vulns_list = aggregator.get_vulnerabilities(component_id)
+                # Clean up the JSON string that uses backslashes
+                clean_identifier = component_id.replace('\\', '')
+                vulns_list = aggregator.get_vulnerabilities(clean_identifier)
 
                 # Handle components with no identified vulnerabilities
                 if not vulns_list:

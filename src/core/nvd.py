@@ -4,6 +4,7 @@ import urllib3
 import time
 from collections import deque
 from core.vsource import VulnerabilitySource
+from urllib.parse import quote
 
 # Suppress warnings for environments with inspection proxies
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -86,7 +87,9 @@ class NVD(VulnerabilitySource):
         Returns:
             dict|None: Parsed JSON data or None if the request failed.
         """
-        url = f"{self.__base_nvd_url}?{query_type}={identifier}"
+        encoded_id = quote(identifier)
+        url = f"{self.__base_nvd_url}?{query_type}={encoded_id}"
+
         headers = {'apiKey': self.__nvd_api_key}
 
         if check_rate_limit:
