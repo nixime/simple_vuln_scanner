@@ -74,46 +74,124 @@ class NVD(VulnerabilitySource):
         # Log the current request timestamp once the window is clear
         self.__request_history.append(time.time())
 
-
-    def __query_api(self, query_type, identifier, check_rate_limit = True):
+    def __query_api(self, query_type, identifier, check_rate_limit=True):
         """
-        Private method to execute GET requests against the NVD.
+        Private method to execute GET requests against the NVD, automatically
+        handling pagination to bypass the 2,000 results limit.
 
         Args:
-            query_type (str): The NVD query parameter (e.g., 'cpeName').
-            identifier (str): The value to search for (the CPE string).
-            check_rate_limit (bool): Indicates if the limit rate check should be performed
+            query_type (str): The NVD query parameter (e.g., 'cpeName' or 'cves').
+            identifier (str): The value to search for.
+            check_rate_limit (bool): Indicates if the limit rate check should be performed.
 
         Returns:
-            dict|None: Parsed JSON data or None if the request failed.
+            dict: A combined JSON object containing all aggregated results.
         """
         encoded_id = quote(identifier)
-        url = f"{self.__base_nvd_url}?{query_type}={encoded_id}"
-
         headers = {'apiKey': self.__nvd_api_key}
+        
+        # Configuration for pagination
+        max_results_per_page = 1500   # Your preferred maximum baseline
+        results_per_page = max_results_per_page
+        min_results_per_page = 100    # Don't shrink past this point
+        start_index = 0
 
-        if check_rate_limit:
-            self._wait_for_rate_limit()
-    
-        try:
-            response = requests.get(url, headers=headers, verify=self.validate_certificate)
-            if response.status_code == 200:
-                return response.json()
-            elif response.status_code == 429:
-                # NVD tells you exactly how long to wait
-                retry_after = int(response.headers.get("Retry-After", 30))
-                if self.verbose_logging:
-                    print(f"    [!] NVD 429 Error. Server-requested wait: {retry_after}s")
-                time.sleep(retry_after + 1) # Add 1s buffer
-                # Basically resetting our rate limit again
-                self.__request_history.clear()
-                return self.__query_api(query_type, identifier, False) # Retry
-            else:
-                print(f"NVD Query Error [{response.status_code}]: {url}")
-                return {}
-        except requests.exceptions.RequestException as e:
-            print(f"NVD Connection Error: {e}")
-            return {}
+        # Track 503 retries for the current page
+        retry_503_count = 0
+        max_503_retries = 5
+        
+        # This will hold our final aggregated data
+        combined_results = {}
+        data_key = None  # Will dynamically find 'vulnerabilities', 'products', etc.
+
+        while True:
+            # Construct url with pagination parameters
+            url = f"{self.__base_nvd_url}?{query_type}={encoded_id}&resultsPerPage={results_per_page}&startIndex={start_index}"
+
+            if check_rate_limit:
+                self._wait_for_rate_limit()
+
+            try:
+                response = requests.get(url, headers=headers, verify=self.validate_certificate)
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    
+                    # Initialize the base combined object structure on the first successful run
+                    if not combined_results:
+                        combined_results = {
+                            "resultsPerPage": data.get("resultsPerPage", 0),
+                            "startIndex": 0,
+                            "totalResults": data.get("totalResults", 0),
+                            "format": data.get("format"),
+                            "version": data.get("version"),
+                            "timestamp": data.get("timestamp")
+                        }
+                        # Dynamically identify the list key (usually 'vulnerabilities' or 'products')
+                        # This ensures it works whether you are querying CVEs, CPEs, etc.
+                        for key in data.keys():
+                            if isinstance(data[key], list):
+                                data_key = key
+                                combined_results[data_key] = []
+                                break
+                    
+                    # Append the newly fetched items to our master list
+                    if data_key and data_key in data:
+                        combined_results[data_key].extend(data[data_key])
+                    
+                    total_results = data.get("totalResults", 0)
+                    returned_count = len(data.get(data_key, []))
+
+                    # Reset our 503 counters and restore the page size for the NEXT page
+                    retry_503_count = 0
+                    results_per_page = max_results_per_page
+                    
+                    # Break condition: if we've fetched everything, or the page returned nothing
+                    start_index += returned_count
+                    if start_index >= total_results or returned_count == 0:
+                        break
+                        
+                elif response.status_code == 429:
+                    retry_after = int(response.headers.get("Retry-After", 30))
+                    if self.verbose_logging:
+                        print(f"    [!] NVD 429 Error. Server-requested wait: {retry_after}s")
+                    time.sleep(retry_after + 1)
+                    self.__request_history.clear()
+                    # Continue the loop without advancing start_index to retry this page
+                    continue
+
+                elif response.status_code == 503:
+                    retry_503_count += 1
+
+                    if retry_503_count > max_503_retries:
+                        print(f"    [!] NVD Query Error [503]: Max retries reached for url: {url}")
+                        break
+
+                    # Cut the page size in half (use floor division to account for fractions), but don't drop below our minimum floor
+                    new_page_size = max(min_results_per_page, results_per_page // 2)
+
+                    # Exponential backoff: sleep 5s, 10s, 20s, 40s...
+                    sleep_backoff = 5 * (2 ** (retry_503_count - 1))
+                    if self.verbose_logging:
+                        print(f"    [!] NVD 503 Service Unavailable. Retrying ({retry_503_count}/{max_503_retries}) in {sleep_backoff}s with pagesize = {new_page_size}")
+                    
+                    results_per_page = new_page_size
+                    time.sleep(sleep_backoff)
+                    continue # Retry the exact same start_index
+
+                else:
+                    print(f"NVD Query Error [{response.status_code}]: {url}")
+                    break
+
+            except requests.exceptions.RequestException as e:
+                print(f"NVD Connection Error: {e}")
+                break
+
+        # Update final metadata to reflect total counts gathered
+        if combined_results and data_key:
+            combined_results["resultsPerPage"] = len(combined_results[data_key])
+            
+        return combined_results
 
 
     def query_for_vulnerabilities(self, cpe_name):

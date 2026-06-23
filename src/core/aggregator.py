@@ -73,10 +73,19 @@ class VulnerabilityAggregator:
             # Execute the query against the specific source implementation
             data = source.query_for_vulnerabilities(identifier)
             
+            # Defensive check: Ensure data is a valid dictionary payload before continuing
+            if not isinstance(data, dict):
+                continue
+
             # Extract the list of vulnerabilities (keys differ between NVD and OSV/DT)
             vulns = data.get('vulnerabilities', data.get('vulns', []))
             
             for v in vulns:
+                # Defensive check for NVD: tokenize_vuln explicitly expects a dictionary 
+                # containing a 'cve' key. Skip malformed objects to prevent KeyErrors.
+                if name == "nvd" and (not isinstance(v, dict) or 'cve' not in v):
+                    continue
+
                 # Standardize the raw JSON into a common format using the source's tokenizer
                 results.append(source.tokenize_vuln(v))
                 

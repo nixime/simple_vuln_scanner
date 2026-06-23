@@ -201,6 +201,10 @@ def main():
                         row_count += 1
                     continue
 
+                if args.verbose:
+                    print(f"  [*] Queried {len(vulns_list)} for {clean_identifier}")
+
+
                 # Vulnerability Detail Extraction
                 for v_data in vulns_list:
                     # Apply Date and Status filters
