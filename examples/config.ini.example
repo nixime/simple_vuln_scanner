@@ -20,6 +20,7 @@ verbose_logging=True
 [TEMPLATE]
 template="examples/template.xlsm"
 template_start_row=3
+template_sheet_name="Sheet 1"
 # (optional) Max lenght of the description when written into the template
 template_max_description_char=50
 # (optional) Should the CVSS Vector be split into individual parts and made available in the template?
