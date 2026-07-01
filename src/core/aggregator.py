@@ -26,7 +26,7 @@ class VulnerabilityAggregator:
         # This "Strict" mode ensures data consistency from a single internal source.
         if "dependency_track" in self.locations:
             import core.dependency_track as dt
-            self.sources["dt"] = dt.DependencyTrack(config.DT.url, config.DT.key, val_cert, self.verbose_logging)
+            self.sources["dt"] = dt.DependencyTrack(config.DT.url, config.DT.key, score_ver, val_cert, self.verbose_logging)
         else:
             # Initialize NVD if present in locations
             if "nvd" in self.locations:
@@ -43,6 +43,10 @@ class VulnerabilityAggregator:
                 # OSV is hardcoded to a batch size of 20 as per internal requirements
                 self.sources["osv"] = OSV(20, val_cert, self.verbose_logging)
 
+    def process_individual_cpes(self):
+        if "dependency_track" in self.locations:
+            return False
+        return True
 
     def get_vulnerabilities(self, identifier):
         """
