@@ -176,8 +176,8 @@ def _main_sbom_file_processing(args, config, system_config, aggregator, epss_man
 
         # generate the priority list of which identifier we should prioritize if one or more types exist
         priority_setting = "purl,cpe"
-        if hasattr(config,"bom_priority_identifier"):
-            priority_setting = getattr(config, "bom_priority_identifier")
+        if hasattr(config.CONFIG,"bom_priority_identifier"):
+            priority_setting = getattr(config.GLOBAL, "bom_priority_identifier")
         if hasattr(system_config, "bom_priority_identifier"):
             priority_setting = getattr(system_config, "bom_priority_identifier")
         if isinstance(priority_setting, str):

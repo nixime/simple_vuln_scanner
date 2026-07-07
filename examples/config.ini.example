@@ -16,6 +16,7 @@ include_zero_vuln_components=False
 validate_remote_certificate=True
 source_locations=osv,nvd,dependancy_track
 verbose_logging=True
+bom_priority_identifier="purl,cpe"
 
 [TEMPLATE]
 template="examples/template.xlsm"
