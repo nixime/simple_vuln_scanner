@@ -13,6 +13,7 @@ boms="examples/sbom_1.json, examples/sbom_2.json"
 bom_format=json
 # Valid for CSV only
 bom_cpe_column=1
+bom_priority_identifier="purl,cpe"
 
 system_uuid=""
 

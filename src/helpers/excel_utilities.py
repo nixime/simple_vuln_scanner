@@ -107,20 +107,53 @@ class ExcelHelper:
 
         # Optional CVSS Component Splitting
         if hasattr(config, "split_cvss_score") and config.split_cvss_score:
-            try:
-                tokens = CVSSHelper.tokenize_cvss3_human(vector_str)
-                metric_map = {
-                    "column_split_cvss_av": "AV", "column_split_cvss_ac": "AC",
-                    "column_split_cvss_pr": "PR", "column_split_cvss_ui": "UI",
-                    "column_split_cvss_s":  "S",  "column_split_cvss_c":  "C",
-                    "column_split_cvss_i":  "I",  "column_split_cvss_a":  "A"
-                }
-                for cfg_attr, token_key in metric_map.items():
-                    if hasattr(config, cfg_attr):
-                        col = getattr(config, cfg_attr)
-                        new_sheet.cell(row=data_row, column=col).value = tokens.get(token_key)
-            except TypeError:
-                pass
+
+            version = vector_str.split('/')[0].replace("CVSS:", "") if vector_str.startswith("CVSS:") else None
+
+            if version in ["3.0", "3.1"]:
+                try:
+                    tokens = CVSSHelper.tokenize_cvss3_human(vector_str)
+                    metric_map = {
+                        "column_split_cvss_av": "AV", "column_split_cvss_ac": "AC",
+                        "column_split_cvss_pr": "PR", "column_split_cvss_ui": "UI",
+                        "column_split_cvss_s":  "S",  "column_split_cvss_c":  "C",
+                        "column_split_cvss_i":  "I",  "column_split_cvss_a":  "A"
+                    }
+                    for cfg_attr, token_key in metric_map.items():
+                        if hasattr(config, cfg_attr):
+                            col = getattr(config, cfg_attr)
+                            new_sheet.cell(row=data_row, column=col).value = tokens.get(token_key)
+                except TypeError:
+                    pass
+            
+            elif version == "4.0":
+                try:
+                    tokens = CVSSHelper.tokenize_cvss4_human(vector_str)
+                    metric_map = {
+                        # Exploitability Metrics
+                        "column_split_cvss_av": "AV", 
+                        "column_split_cvss_ac": "AC",
+                        "column_split_cvss_at": "AT",  # New in CVSS4
+                        "column_split_cvss_pr": "PR", 
+                        "column_split_cvss_ui": "UI",
+                        
+                        # Vulnerable System Impact Metrics
+                        "column_split_cvss_vc": "VC",
+                        "column_split_cvss_vi": "VI",
+                        "column_split_cvss_va": "VA",
+                        
+                        # Subsequent System Impact Metrics (Replaces S)
+                        "column_split_cvss_sc": "SC",  
+                        "column_split_cvss_si": "SI",  
+                        "column_split_cvss_sa": "SA"   
+                    }
+                    for cfg_attr, token_key in metric_map.items():
+                        if hasattr(config, cfg_attr):
+                            col = getattr(config, cfg_attr)
+                            new_sheet.cell(row=data_row, column=col).value = tokens.get(token_key)
+                except TypeError:
+                    pass
+
 
     @staticmethod
     def populate_epss_data(new_sheet, config, epss_manager):

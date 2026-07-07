@@ -138,9 +138,67 @@ class CVSSHelper:
                 if not part: continue
                 key, val = part.split(":")
                 if human_readable:
-                    human_value = CVSS_MAP.get(key, {}).get(val, val)
+                    # Look up the full name. If not found, default to the value itself.
+                    full_name = CVSS_MAP.get(key, {}).get(val, val)
+                    # Format as "Full Name (V)" if a friendly name was matched, otherwise keep raw
+                    human_value = f"{full_name} ({val})" if full_name != val else val
                 else:
                     human_value = val
+                readable_components[key] = human_value
+            return readable_components
+        except ValueError:
+            raise ValueError(f"Invalid CVSS format: {vector_string}")
+
+    @staticmethod
+    def tokenize_cvss4_human(vector_string: str, human_readable: bool = True) -> dict:
+        """
+        Explodes a CVSS v4.0 Base vector into a dictionary.
+        
+        If human_readable is True, it formats values as "Descriptive Name (Short Code)".
+        Example: "AV:N" becomes {"AV": "Network (N)"}.
+        """
+        CVSS_MAP = {
+            # Exploitability Metrics
+            "AV": {"N": "Network", "A": "Adjacent", "L": "Local", "P": "Physical"},
+            "AC": {"L": "Low", "H": "High"},
+            "AT": {"N": "None", "H": "High"},
+            "PR": {"N": "None", "L": "Low", "H": "High"},
+            "UI": {"N": "None", "P": "Passive", "A": "Active"},
+            
+            # Vulnerable System Impact Metrics
+            "VC": {"N": "None", "L": "Low", "H": "High"},
+            "VI": {"N": "None", "L": "Low", "H": "High"},
+            "VA": {"N": "None", "L": "Low", "H": "High"},
+            
+            # Subsequent System Impact Metrics
+            "SC": {"N": "None", "L": "Low", "H": "High"},
+            "SI": {"N": "None", "L": "Low", "H": "High"},
+            "SA": {"N": "None", "L": "Low", "H": "High"}
+        }
+
+        if not vector_string.startswith("CVSS:4"):
+            raise TypeError(f"Only CVSS4 can be tokenized: {vector_string}")
+
+        # Remove the header (CVSS:4.x/)
+        vector = vector_string.strip()
+        if "/" in vector:
+            vector = vector.split("/", 1)[1]
+
+        readable_components = {}
+        try:
+            for part in vector.split("/"):
+                if not part: 
+                    continue
+                key, val = part.split(":")
+                
+                if human_readable:
+                    # Look up the full name. If not found, default to the value itself.
+                    full_name = CVSS_MAP.get(key, {}).get(val, val)
+                    # Format as "Full Name (V)" if a friendly name was matched, otherwise keep raw
+                    human_value = f"{full_name} ({val})" if full_name != val else val
+                else:
+                    human_value = val
+                    
                 readable_components[key] = human_value
             return readable_components
         except ValueError:

@@ -26,7 +26,7 @@ class DependencyTrack(VulnerabilitySource):
         Retrieves all vulnerability findings from DT's internal database.
         Handles pagination, size limits, authorization errors, and bad requests.
         """
-        base_url = f"http://{self.__base_url}/api/v1/finding/project/{project_id}"
+        base_url = f"{self.__base_url}/api/v1/finding/project/{project_id}"
         
         all_vulnerabilities = []
         page = 1
@@ -48,8 +48,19 @@ class DependencyTrack(VulnerabilitySource):
                         break
                         
                     all_vulnerabilities.extend(data)
-                    if len(data) < size:
-                        break
+
+                    # Read the custom tracking header from Dependency-Track
+                    total_count_header = response.headers.get("X-Total-Count")
+
+                    if total_count_header:
+                        total_records = int(total_count_header)
+                        # If what we've collected meets or exceeds total records, we are done
+                        if len(all_vulnerabilities) >= total_records:
+                            break
+                    else:
+                        # Fallback: if header is missing, use page size completion logic
+                        if len(data) < size:
+                            break
                         
                     page += 1
                     
@@ -152,10 +163,15 @@ class DependencyTrack(VulnerabilitySource):
 
         # Your Dependency-Track millisecond timestamp
         timestamp_ms = vulnerability.get("published")
-        # Convert milliseconds to seconds
-        timestamp_s = timestamp_ms / 1000.0
-        # Convert to a timezone-aware datetime object (UTC) and format to ISO 8601
-        iso_format = datetime.fromtimestamp(timestamp_s, tz=timezone.utc).isoformat()
+        if timestamp_ms:
+            # Convert milliseconds to seconds
+            timestamp_s = timestamp_ms / 1000.0
+            # Convert to a timezone-aware datetime object (UTC) and format to ISO 8601
+            iso_format = datetime.fromtimestamp(timestamp_s, tz=timezone.utc).isoformat()
+        else:
+            # Fallback: Use the Unix/Linux Epoch Start Date (January 1, 1970 UTC)
+            iso_format = datetime(1970, 1, 1, tzinfo=timezone.utc).isoformat()
+
 
         data_result = {
             "id": vulnerability.get('vulnId'),
@@ -166,7 +182,12 @@ class DependencyTrack(VulnerabilitySource):
             "base_score": base_score,
             "vector": vector_str,
             "version": convert_from,
-            "epss_score": epss_score
+            "epss_score": epss_score,
+            "component_name": component.get("name") if component else "Unknown",
+            "component_version": component.get("version") if component else "Unknown",
+            "component_purl": component.get("purl") if component else "Unknown",
+            "component_cpe": component.get("cpe") if component else "Unknown",
+            "component_identifier": (component.get("cpe") or component.get("purl") or "Unknown") if component else "Unknown"
         }
 
         return data_result

@@ -296,6 +296,31 @@ class NVD(VulnerabilitySource):
                 cve_json['metrics'], cve_id
             )
 
+        # --- Dynamic Component Extraction ---
+        component_name = "Unknown"
+        component_version = "Unknown"
+        extracted_cpe = "Unknown"
+
+        # Safely drill down into the NVD configurations block to find an applicable CPE string
+        configurations = cve_json.get('configurations', [])
+        if configurations and isinstance(configurations, list):
+            nodes = configurations[0].get('nodes', [])
+            if nodes and isinstance(nodes, list):
+                cpe_match = nodes[0].get('cpeMatch', [])
+                if cpe_match and isinstance(cpe_match, list):
+                    # Grab the very first recorded logic statement's criteria string
+                    extracted_cpe = cpe_match[0].get('criteria', "Unknown")
+                    
+                    # CPE 2.3 strings format: cpe:2.3:part:vendor:product:version:...
+                    if extracted_cpe.startswith("cpe:2.3:"):
+                        cpe_parts = extracted_cpe.split(":")
+                        if len(cpe_parts) >= 6:
+                            # Combine Vendor + Product for a readable name, clean up underscores
+                            vendor = cpe_parts[3].replace("_", " ").title()
+                            product = cpe_parts[4].replace("_", " ").title()
+                            component_name = f"{vendor} {product}"
+                            component_version = cpe_parts[5]
+
         return {
             "id": cve_id,
             "cve_id": cve_id,
@@ -304,5 +329,12 @@ class NVD(VulnerabilitySource):
             "status": cve_json['vulnStatus'],
             "base_score": base_score,
             "vector": vector_str,
-            "version": version_num
+            "version": version_num,
+            
+            # Formatted fields to match Dependency-Track payload schemas seamlessly
+            "component_name": component_name,
+            "component_version": component_version,
+            "component_purl": "Unknown",  # NVD natively tracks CPEs, not Package URLs (PURLs)
+            "component_cpe": extracted_cpe,
+            "component_identifier": extracted_cpe  # CPE acts as the identifier fallback
         }

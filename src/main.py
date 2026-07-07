@@ -24,7 +24,7 @@ import core.dependency_track as dt
 import core.aggregator as va
 from helpers.excel_utilities import ExcelHelper
 
-def get_component_list(file: str, file_type: str, csv_column_id: int):
+def get_component_list(file: str, file_type: str, csv_column_id: int, priority_list: list[str] = None):
     """
     Extracts software component identifiers (CPEs or PURLs) from a source file.
 
@@ -35,10 +35,15 @@ def get_component_list(file: str, file_type: str, csv_column_id: int):
         file (str): Filepath to the inventory or SBOM document.
         file_type (str): The format of the file, either 'csv' or 'json' (CycloneDX).
         csv_column_id (int): The zero-indexed column position to parse if file_type is 'csv'.
+        priority_list (list[str], optional): Prioritized list of component attribute keys to extract 
+                                              (e.g., ['purl', 'cpe']). Defaults to ['purl', 'cpe'].
 
     Returns:
         list[str]: A list of cleaned component identification strings.
     """
+    if priority_list is None:
+        priority_list = ["purl", "cpe"]
+
     cpe_list = []
     if file_type.lower() == "csv":
         with open(file, mode='r', encoding='utf-8') as f:
@@ -48,11 +53,19 @@ def get_component_list(file: str, file_type: str, csv_column_id: int):
     else:
         with open(file, 'r') as f:
             bom = Bom.from_json(data=json.load(f))
+        
+        # Iterate over components and check attributes based on the user's priority preferences
         for component in bom.components:
-            if component.cpe:
-                cpe_list.append(str(component.cpe))
-            elif component.purl:
-                cpe_list.append(str(component.purl))
+            for item_type in priority_list:
+                normalized_type = item_type.strip().lower()
+                
+                if normalized_type == "purl" and component.purl:
+                    cpe_list.append(str(component.purl))
+                    break  # Found higher priority identifier, skip lower priorities
+                elif normalized_type == "cpe" and component.cpe:
+                    cpe_list.append(str(component.cpe))
+                    break  # Found higher priority identifier, skip lower priorities
+                    
     return cpe_list
 
 def valid_date(s):
@@ -160,10 +173,19 @@ def _main_sbom_file_processing(args, config, system_config, aggregator, epss_man
             row_count = 0
 
         csv_col = getattr(system_config, "bom_cpe_column", 0)
-        component_list = get_component_list(str(full_bom), system_config.bom_format, csv_col)
 
+        # generate the priority list of which identifier we should prioritize if one or more types exist
+        priority_setting = "purl,cpe"
+        if hasattr(config,"bom_priority_identifier"):
+            priority_setting = getattr(config, "bom_priority_identifier")
+        if hasattr(system_config, "bom_priority_identifier"):
+            priority_setting = getattr(system_config, "bom_priority_identifier")
+        if isinstance(priority_setting, str):
+            priority_list = [p.strip().lower() for p in priority_setting.split(",") if p.strip()]
+
+        component_list = get_component_list(str(full_bom), system_config.bom_format, csv_col, priority_list)
         if args.verbose:
-            print(f"  [+] Extracted {len(component_list)} components.")
+            print(f"  [+] Extracted {len(component_list)} components, Prioritized IDs {priority_list}.")
 
         for component_id in component_list:
             clean_identifier = component_id.replace('\\', '')
@@ -256,7 +278,7 @@ def _main_sbom_uuid_processing(args, config, system_config, aggregator, epss_man
             epss_manager.register_cve(cve_id=v_data['cve_id'], indexer_id=data_row)
 
         ExcelHelper.populate_template_sheet(
-            template_sheet, data_row, config.TEMPLATE, system_uuid, "CPE",
+            template_sheet, data_row, config.TEMPLATE, system_uuid, v_data['component_identifier'],
             v_data['cve_id'], v_data['description'], v_data['published'],
             v_data['vector'], v_data['base_score'], is_kev
         )
@@ -282,7 +304,6 @@ def main():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     parser.add_argument("--config", type=str, default="config.ini", help="Path to main .ini config")
-    parser.add_argument("--load", type=str, help="Load a pre-existing JSON dump for offline testing")
     parser.add_argument("--outdir", type=str, default="", help="Output directory for generated Excel files")
     parser.add_argument("--system_override", type=str, help="Specific System.ini to process")
     parser.add_argument("--start", type=valid_date, help="Filter vulnerabilities published AFTER this date")
@@ -332,14 +353,17 @@ def main():
         aggregator_override = va.VulnerabilityAggregator(override_sources, config, val_cert, score_ver) if override_sources else aggregator
 
         if aggregator_override.process_individual_cpes():
+            if args.verbose:
+                print(f"[+] Processing individual CPEs from a SBOM file (NVD/OSV)")
             _main_sbom_file_processing(args, config, system_config, aggregator_override, epss_manager, kev_obj, wb, template_sheet, system_root_path)
         else:
-            print(f"[+] Using Dependency Track Logic so we have to use project IDs instead of CPEs")
+            if args.verbose:
+                print(f"[+] Processing system level ID (i.e. Dependency Track)")
             _main_sbom_uuid_processing(args, config, system_config, aggregator_override, epss_manager, kev_obj, template_sheet)
         
         out_file = Path(args.outdir) / f"{system_config.name[:31]}{Path(local_template_file).suffix}"
         wb.save(out_file)
-        
+
         if args.verbose:
             print(f"[SUCCESS] Report generated: {out_file}")
 
